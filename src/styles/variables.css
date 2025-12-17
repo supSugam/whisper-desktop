@@ -1,0 +1,23 @@
+:root {
+  /* Palette - V3 Lighter Dark */
+  --bg-color: #161616;
+  --surface-color: #242424;
+  --surface-hover: #333;
+  --accent-color: #3584e4;
+  --accent-hover: #1c71d8;
+  --text-primary: #ffffff;
+  --text-secondary: #9a9996;
+  --danger-color: #e01b24;
+  --warning-color: #f6d32d;
+  --success-color: #33d17a;
+  
+  /* Metrics */
+  --radius-lg: 8px; /* Hardened V18 */
+  --radius-sm: 4px;
+  --spacing-md: 16px;
+  --container-max-w: 600px;
+  
+  /* Animation */
+  --transition-fast: 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --pulse-anim: pulse 2s infinite;
+}

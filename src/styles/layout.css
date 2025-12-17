@@ -1,0 +1,118 @@
+#app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  position: relative;
+}
+
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.app-container {
+    width: 100%;
+    max-width: min(100%, 650px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    flex: 1; /* Allow container to fill empty space */
+    min-height: 0; /* Important for scrollable children in flex column */
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px; 
+  flex: 0 0 auto;
+}
+
+.action-area {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  margin-top: 24px; /* V16 Polish */
+}
+
+/* Modals */
+.overlay {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.overlay.open { opacity: 1; pointer-events: auto; }
+
+.modal-card {
+    background: #1c1c1c;
+    width: 100%;
+    /* height: 100%; removed to allow auto-sizing */
+    max-width: min(95%, 650px);
+    max-height: 95vh;
+    border-radius: 8px; /* V18 Hardened */
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+    font-size: 15px;
+    padding: 24px; /* Global Padding */
+}
+
+.modal-header {
+    /* Removed padding to use parent padding */
+    padding-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    background: #1c1c1c;
+    z-index: 10;
+}
+
+.modal-body {
+    /* Removed padding */
+    padding-top: 24px;
+    overflow-y: auto;
+    flex: 1;
+    /* Custom scrollbar to prevent overlapping content if needed */
+    padding-right: 4px; /* Tiny buffer for scrollbar */
+}
+
+.modal-footer {
+    padding: 16px 0 0 0;
+    margin-top: auto;
+    border-top: 1px solid #333;
+    display: flex;
+    justify-content: flex-start; /* Reset button on left or right? Standard is usually right for primary, left for reset. Left is fine. */
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .main-layout { padding: 24px; }
+    /* Mobile: Keep it floating (95%) but maybe looser radius if needed */
+    .modal-card { max-width: 95%; max-height: 95%; } 
+    .action-area { margin-bottom: 20px; }
+}
+
+@media (max-height: 600px) {
+    .action-area { margin-bottom: 10px; }
+    .modal-card { max-height: 95%; }
+}
