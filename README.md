@@ -4,6 +4,8 @@
 
 A lightweight & cross-platform desktop app that brings ChatGPT's voice-to-text feature to your desktop using your own ChatGPT session key.
 
+![alt text](screenshots/whisper-plus.png)
+
 ## Features
 
 -   **Global Shortcut**: Toggle recording from any application using `Ctrl+Alt+Space`.

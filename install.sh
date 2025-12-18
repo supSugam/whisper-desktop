@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-VERSION="1.0.0"
-TAG="v1.0.0"
+VERSION="1.0.1"
+TAG="v1.0.1"
 BASE_URL="https://github.com/supSugam/whisper-desktop/releases/download/$TAG"
 
 # Colors

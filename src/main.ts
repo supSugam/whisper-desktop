@@ -13,6 +13,7 @@ import { formatDuration } from './lib/utils';
 
 // State
 let isRecording = false;
+let isTranscribing = false;
 let startTime = 0;
 let recordTimer: any = null;
 
@@ -23,6 +24,19 @@ function updateRecUI() {
   const controls = document.getElementById('recording-controls');
 
   if (!btn || !status || !controls) return;
+
+  // Always clean up processing class first
+  btn.classList.remove('processing');
+
+  if (isTranscribing) {
+    btn.classList.remove('recording');
+    btn.classList.add('processing');
+    btn.innerHTML = ICONS.mic; // Keep icon
+    status.classList.remove('visible');
+    return;
+  }
+
+  status.style.color = ''; // Reset color
 
   if (isRecording) {
     btn.classList.add('recording');
@@ -40,13 +54,22 @@ function updateRecUI() {
 
 function updateTimer() {
   const status = document.getElementById('rec-status');
-  if (status && isRecording) {
+  if (status && isRecording && !isTranscribing) {
     status.innerText = formatDuration(Date.now() - startTime);
   }
 }
 
 async function startRecord() {
   if (isRecording) return;
+
+  if (isTranscribing) {
+    const btn = document.getElementById('record-btn');
+    btn?.classList.add('shake');
+    setTimeout(() => btn?.classList.remove('shake'), 500);
+    showToast('Wait for previous task to finish');
+    return;
+  }
+
   const config = await getConfig();
   if (!config.token) {
     alert('Please set your ChatGPT token in settings first.');
@@ -76,18 +99,20 @@ async function stopRecord() {
   const config = await getConfig();
   if (config.soundEnabled) audioController.playEnd();
   clearInterval(recordTimer);
+
+  // Set transcribing state immediately
+  isTranscribing = true;
   updateRecUI();
 
   const duration = Date.now() - startTime;
-  // config already loaded above
-  // const config = await getConfig(); // remove redundant load
 
   try {
     const path = await invoke<string>('stop_recording');
 
     if (duration < 500) {
-      // invoke('cancel_record'); // No, stop handles it, but we discard
       showToast('Too short, discarded');
+      isTranscribing = false;
+      updateRecUI();
       return;
     }
 
@@ -114,8 +139,12 @@ async function stopRecord() {
         if (config.autoCopy) {
           await writeText(text);
           if (config.autoPaste) {
-            setTimeout(() => invoke('paste_text'), 100);
-            showToast('Pasted');
+            if (document.hasFocus()) {
+              showToast('Auto-paste skipped (App Focused)');
+            } else {
+              setTimeout(() => invoke('paste_text'), 100);
+              showToast('Pasted');
+            }
           }
         }
       }
@@ -128,7 +157,6 @@ async function stopRecord() {
         error: true,
       });
     }
-    // historyUI.render(); // Handled by subscription
   } catch (e: any) {
     if (String(e).includes('SILENCE_DETECTED')) {
       showToast('Skipped: Silence Detected');
@@ -136,6 +164,9 @@ async function stopRecord() {
       console.error('Stop/Transcribe Error', e);
       showToast('Error processing audio');
     }
+  } finally {
+    isTranscribing = false;
+    updateRecUI();
   }
 }
 
