@@ -14,6 +14,16 @@ A lightweight & cross-platform desktop app that brings ChatGPT's voice-to-text f
 
 ## Installation
 
+### Quick Install (Linux & macOS)
+
+Run the following command in your terminal to automatically detect and install the correct version for your system:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/supSugam/whisper-desktop/main/install.sh | bash
+```
+
+### Manual Installation
+
 Download the latest installer or executable for your platform from the [Releases page](https://github.com/supSugam/whisper-plus/releases).
 
 -   **Windows**: `.exe` installer.
