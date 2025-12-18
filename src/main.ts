@@ -139,8 +139,11 @@ async function stopRecord() {
         if (config.autoCopy) {
           await writeText(text);
           if (config.autoPaste) {
-            if (document.hasFocus()) {
-              showToast('Auto-paste skipped (App Focused)');
+            const settingsOpen = document
+              .getElementById('settings-overlay')
+              ?.classList.contains('open');
+            if (settingsOpen) {
+              showToast('Auto-paste skipped (Settings Open)');
             } else {
               setTimeout(() => invoke('paste_text'), 100);
               showToast('Pasted');
