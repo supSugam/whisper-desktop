@@ -17,6 +17,7 @@ export async function getConfig(): Promise<AppConfig> {
   if (!store) return cachedConfig;
 
   const token = await store.get<string>('token');
+  const userAgent = await store.get<string>('userAgent');
   const autoCopy = await store.get<boolean>('autoCopy');
   const autoPaste = await store.get<boolean>('autoPaste');
   const soundEnabled = await store.get<boolean>('soundEnabled');
@@ -28,11 +29,12 @@ export async function getConfig(): Promise<AppConfig> {
   try {
     autostart = await isEnabled();
   } catch (e) {
-    console.warn("Autostart check failed", e);
+    console.warn('Autostart check failed', e);
   }
 
   cachedConfig = {
     token: token ?? DEFAULT_CONFIG.token,
+    userAgent: userAgent ?? DEFAULT_CONFIG.userAgent,
     autoCopy: autoCopy ?? DEFAULT_CONFIG.autoCopy,
     autoPaste: autoPaste ?? DEFAULT_CONFIG.autoPaste,
     autostart, // Dynamic

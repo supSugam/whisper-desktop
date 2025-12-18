@@ -1,5 +1,6 @@
 export interface AppConfig {
   token: string;
+  userAgent: string;
   autoCopy: boolean;
   autoPaste: boolean;
   autostart: boolean;
@@ -10,6 +11,8 @@ export interface AppConfig {
 
 export const DEFAULT_CONFIG: AppConfig = {
   token: '',
+  userAgent:
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
   autoCopy: true,
   autoPaste: true,
   autostart: false,

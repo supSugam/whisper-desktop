@@ -11,6 +11,9 @@
   --warning-color: #f6d32d;
   --success-color: #33d17a;
   
+
+  --recording-color: #059669; /* Emerald Dark Green */
+  
   /* Metrics */
   --radius-lg: 8px; /* Hardened V18 */
   --radius-sm: 4px;

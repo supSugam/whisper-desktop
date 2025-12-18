@@ -10,7 +10,7 @@ use tauri::{
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit Whisper+", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Open window", true, None::<&str>)?;
@@ -48,6 +48,12 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            if let Some(window) = app.get_webview_window("main") {
+                let icon = app.default_window_icon().unwrap().clone();
+                let _ = window.set_icon(icon);
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -57,8 +63,12 @@ pub fn run() {
             }
         })
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init());
+
+    #[cfg(not(debug_assertions))]
+    let builder = builder.plugin(tauri_plugin_autostart::Builder::new().build());
+
+    builder
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(AudioState::new())

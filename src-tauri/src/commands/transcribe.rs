@@ -2,7 +2,7 @@ use reqwest;
 use serde_json;
 
 #[tauri::command]
-pub async fn transcribe(path: String, token: String) -> Result<String, String> {
+pub async fn transcribe(path: String, token: String, user_agent: String) -> Result<String, String> {
     if token.trim().is_empty() {
         return Err("Token is empty".into());
     }
@@ -15,11 +15,10 @@ pub async fn transcribe(path: String, token: String) -> Result<String, String> {
     };
 
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+        .user_agent(user_agent)
         .build()
         .map_err(|e| e.to_string())?;
 
-    // 1. Get Session for Access Token
     let session_url = "https://chatgpt.com/api/auth/session";
     let resp = client
         .get(session_url)
@@ -40,11 +39,9 @@ pub async fn transcribe(path: String, token: String) -> Result<String, String> {
         .as_str()
         .ok_or("No access token in session")?;
 
-    // 2. Upload Audio
     let url = "https://chatgpt.com/backend-api/transcribe";
     let file_bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
 
-    // Create multipart form
     let part = reqwest::multipart::Part::bytes(file_bytes)
         .file_name("whisper.wav")
         .mime_str("audio/wav")

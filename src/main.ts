@@ -97,6 +97,7 @@ async function stopRecord() {
       const text = await invoke<string>('transcribe', {
         path,
         token: config.token,
+        userAgent: config.userAgent,
       });
 
       if (!text || text.trim().length === 0) {
@@ -252,6 +253,15 @@ function setupSettings(initialConfig: any) {
     tkInput.value = initialConfig.token;
     tkInput.addEventListener('input', async (e: any) => {
       await updateConfig('token', e.target.value);
+    });
+  }
+
+  // User Agent
+  const uaInput = document.getElementById('ua-input') as HTMLInputElement;
+  if (uaInput) {
+    uaInput.value = initialConfig.userAgent;
+    uaInput.addEventListener('input', async (e: any) => {
+      await updateConfig('userAgent', e.target.value);
     });
   }
 

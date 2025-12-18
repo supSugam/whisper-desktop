@@ -15,11 +15,23 @@ body {
   user-select: none;
 }
 
+a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--text-secondary);
+}
+
+/* Animations */
 /* Animations */
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(224, 27, 36, 0.4); }
-  70% { box-shadow: 0 0 0 15px rgba(224, 27, 36, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(224, 27, 36, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
+  70% { box-shadow: 0 0 0 15px rgba(5, 150, 105, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
 }
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }

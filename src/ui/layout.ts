@@ -111,6 +111,14 @@ export function renderLayout(appEl: HTMLElement) {
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">User Agent (Browser Signature)</label>
+                        <input id="ua-input" class="form-input" type="text" placeholder="Mozilla/5.0...">
+                        <div class="form-text" style="font-size:0.75rem; color:#aaa; margin-top:4px;">
+                            Optional: Match this with your browser to avoid session conflicts.
+                        </div>
+                    </div>
+
                      <!-- Detailed Guide -->
                     <div class="guide-box">
                         <div class="guide-header">How to retrieve your token</div>
