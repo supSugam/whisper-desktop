@@ -1,7 +1,11 @@
 use std::sync::{Arc, Mutex};
 
+// Wrapper to force Send on cpal::Stream (Mac-specific workaround)
+pub struct SendStream(pub cpal::Stream);
+unsafe impl Send for SendStream {}
+
 pub struct AudioState {
-    pub stream: Arc<Mutex<Option<cpal::Stream>>>,
+    pub stream: Arc<Mutex<Option<SendStream>>>,
     pub is_recording: Arc<Mutex<bool>>,
     pub max_amplitude: Arc<Mutex<f32>>,
 }

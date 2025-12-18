@@ -73,7 +73,7 @@ pub async fn start_recording(
 
     stream.play().map_err(|e| e.to_string())?;
 
-    *state.stream.lock().unwrap() = Some(stream);
+    *state.stream.lock().unwrap() = Some(crate::state::SendStream(stream));
     *is_rec = true;
 
     Ok(())
