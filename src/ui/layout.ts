@@ -82,10 +82,20 @@ export function renderLayout(appEl: HTMLElement) {
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div id="autopaste-wayland-info" class="form-info-box" style="display: none;">
+                        ⚠️ On Wayland, auto-paste only works with apps running in XWayland mode (most Electron/browser apps). Native Wayland apps won't receive the paste.
+                    </div>
                     <div class="form-row">
                         <label class="form-label">Sound Effects</label>
                         <label class="toggle-switch">
                             <input type="checkbox" id="sound-input">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Desktop Notifications</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notification-input">
                             <span class="slider"></span>
                         </label>
                     </div>

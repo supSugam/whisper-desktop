@@ -62,10 +62,10 @@ button.icon-btn:hover { background: var(--surface-hover); color: var(--text-prim
   top: -6px; left: -6px; right: -6px; bottom: -6px;
   border-radius: 50%;
   border: 4px solid transparent;
-  border-top-color: var(--accent-color);
-  border-left-color: var(--accent-color);
+  border-top-color: var(--recording-color);
+  border-left-color: var(--recording-color);
   animation: spin 1s linear infinite;
-  box-shadow: 0 0 10px rgba(53, 132, 228, 0.2);
+  box-shadow: 0 0 10px rgba(5, 150, 105, 0.2);
 }
 
 @keyframes spin {
@@ -147,6 +147,16 @@ button.icon-btn:hover { background: var(--surface-hover); color: var(--text-prim
 .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .form-label { display: block; font-size: 0.9rem; color: #ddd; }
 .form-text { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+.form-info-box { 
+  font-size: 0.75rem; 
+  color: #f0ad4e; 
+  background: rgba(240, 173, 78, 0.1); 
+  border: 1px solid rgba(240, 173, 78, 0.3); 
+  padding: 8px 10px; 
+  border-radius: 6px; 
+  margin-bottom: 12px; 
+  line-height: 1.4; 
+}
 
 .form-input {
   width: 100%; background: #000; border: 1px solid #333; padding: 12px; border-radius: 8px;
@@ -168,6 +178,8 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 .segment-btn:hover { color: #ccc; background: rgba(255,255,255,0.05); }
 .segment-btn.active { background: #444; color: #fff; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.segment-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+.segment-btn.disabled:hover { color: #888; background: transparent; }
 
 .guide-box { background: #1a1a1a; border: 1px solid #333; padding: 12px; border-radius: 8px; margin-top: 8px; }
 .guide-step { margin-bottom: 8px; font-size: 0.85rem; color: #ccc; display: flex; gap: 8px; align-items: flex-start; }

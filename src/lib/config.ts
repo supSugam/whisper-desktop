@@ -23,6 +23,7 @@ export async function getConfig(): Promise<AppConfig> {
   const soundEnabled = await store.get<boolean>('soundEnabled');
   const shortcutEnabled = await store.get<boolean>('shortcutEnabled');
   const recordMode = await store.get<'toggle' | 'hold'>('recordMode');
+  const notificationEnabled = await store.get<boolean>('notificationEnabled');
 
   // Check Autostart status dynamically
   let autostart = false;
@@ -41,15 +42,18 @@ export async function getConfig(): Promise<AppConfig> {
     soundEnabled: soundEnabled ?? DEFAULT_CONFIG.soundEnabled,
     shortcutEnabled: shortcutEnabled ?? DEFAULT_CONFIG.shortcutEnabled,
     recordMode: recordMode ?? DEFAULT_CONFIG.recordMode,
+    notificationEnabled:
+      notificationEnabled ?? DEFAULT_CONFIG.notificationEnabled,
   };
 
   return cachedConfig;
 }
 
 export async function updateConfig(key: keyof AppConfig, value: any) {
-    if (!store) return;
-    if (key === 'autostart') return; // Handled separately via plugin
-    await store.set(key, value);
-    await store.save();
-    // Cache update is handled on next getConfig call or we could optimize
+  if (!store) return;
+  if (key === 'autostart') return;
+  await store.set(key, value);
+  await store.save();
+  // Immediately update cache for instant reactivity
+  (cachedConfig as any)[key] = value;
 }

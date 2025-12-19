@@ -1,0 +1,64 @@
+#titlebar {
+  height: 28px; /* Compact like VS Code */
+  background: var(--bg-color); /* Seamless blend */
+  user-select: none;
+  display: flex;
+  justify-content: flex-end; /* Controls on right */
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  /* No bottom border for seamless look */
+}
+
+/* Optional: Add a subtle title if needed, or hide it for cleanliness */
+.title-text {
+  display: none; 
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar-btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 42px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.titlebar-btn#titlebar-close:hover {
+  background: #E81123; /* Windows Red */
+  color: #fff;
+}
+
+.titlebar-btn svg {
+  width: 10px; /* Refined, smaller icons */
+  height: 10px;
+}
+
+/* Add a subtle border to the whole app since we lost the window shadow/border */
+body {
+  padding-top: 28px;
+  border: 1px solid #333;
+  border-radius: 8px; /* Soft rounding */
+  overflow: hidden; /* Clip content to rounded corners */
+}
+/* Ensure the titlebar respects the rounding */
+#titlebar {
+  border-radius: 8px 8px 0 0;
+}

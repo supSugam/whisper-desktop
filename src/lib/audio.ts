@@ -1,32 +1,19 @@
+import { invoke } from '@tauri-apps/api/core';
+
 export class AudioController {
-  private startSound: HTMLAudioElement;
-  private endSound: HTMLAudioElement;
+  // Play sounds using native Rust audio (rodio)
+  // WAV files are embedded in the Rust binary
 
-  constructor() {
-    this.startSound = new Audio('/sounds/start.ogg');
-    this.endSound = new Audio('/sounds/end.ogg');
-    
-    // Preload
-    this.startSound.load();
-    this.endSound.load();
+  playStart(): void {
+    invoke('play_start_sound').catch((e) => {
+      console.error('Failed to play start sound:', e);
+    });
   }
 
-  async playStart() {
-    try {
-      this.startSound.currentTime = 0;
-      await this.startSound.play();
-    } catch (e) {
-      console.warn('Audio play failed', e);
-    }
-  }
-
-  async playEnd() {
-    try {
-      this.endSound.currentTime = 0;
-      await this.endSound.play();
-    } catch (e) {
-      console.warn('Audio play failed', e);
-    }
+  playEnd(): void {
+    invoke('play_end_sound').catch((e) => {
+      console.error('Failed to play end sound:', e);
+    });
   }
 }
 

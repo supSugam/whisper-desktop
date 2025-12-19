@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-VERSION="1.0.1"
-TAG="v1.0.1"
+VERSION="1.0.2"
+TAG="v1.0.2"
 BASE_URL="https://github.com/supSugam/whisper-desktop/releases/download/$TAG"
 
 # Colors
@@ -23,7 +23,7 @@ if [ "$OS" = "Linux" ]; then
     if [ "$ARCH" = "x86_64" ]; then
         if command -v dpkg >/dev/null && command -v apt-get >/dev/null; then
             # Debian/Ubuntu
-            FILE="Whisper+_${VERSION}_amd64.deb"
+            FILE="whisper-plus_${VERSION}_amd64.deb"
             URL="$BASE_URL/$FILE"
             DEST="/tmp/$FILE"
             
@@ -42,7 +42,7 @@ if [ "$OS" = "Linux" ]; then
             
         elif command -v rpm >/dev/null; then
             # RHEL/Fedora
-            FILE="Whisper+-${VERSION}-1.x86_64.rpm"
+            FILE="whisper-plus-${VERSION}-1.x86_64.rpm"
             URL="$BASE_URL/$FILE"
             DEST="/tmp/$FILE"
             
@@ -60,15 +60,15 @@ if [ "$OS" = "Linux" ]; then
             
         else
             # Fallback to AppImage
-            FILE="Whisper+_${VERSION}_amd64.AppImage"
+            FILE="whisper-plus_${VERSION}_amd64.AppImage"
             URL="$BASE_URL/$FILE"
-            DEST="./Whisper+.AppImage"
+            DEST="./whisper-plus.AppImage"
             
             echo "No supported package manager found. Falling back to AppImage."
             echo -e "Downloading ${GREEN}$FILE${NC}..."
             if curl -L -o "$DEST" "$URL"; then
                 chmod +x "$DEST"
-                echo -e "${GREEN}Download complete! Run with ./Whisper+.AppImage${NC}"
+                echo -e "${GREEN}Download complete! Run with ./whisper-plus.AppImage${NC}"
             else
                 echo -e "${RED}Download failed.${NC}"
                 exit 1
@@ -81,7 +81,7 @@ if [ "$OS" = "Linux" ]; then
 
 elif [ "$OS" = "Darwin" ]; then
     if [ "$ARCH" = "arm64" ]; then
-        FILE="Whisper+_${VERSION}_aarch64.dmg"
+        FILE="whisper-plus_${VERSION}_aarch64.dmg"
         URL="$BASE_URL/$FILE"
         DEST="/tmp/$FILE"
         

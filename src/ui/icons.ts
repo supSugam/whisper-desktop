@@ -5,5 +5,8 @@ export const ICONS = {
   trash: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
   copy: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`,
   search: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`,
-  close: `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+  close: `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M10 1.01L8.99 0L5 3.99L1.01 0L0 1.01L3.99 5L0 8.99L1.01 10L5 6.01L8.99 10L10 8.99L6.01 5L10 1.01Z" /></svg>`,
+  minimize: `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M0 5H10V6H0V5Z" /></svg>`,
+  maximize: `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M1 1H9V9H1V1ZM0 0V10H10V0H0ZM2 2H8V8H2V2Z" /></svg>`,
+  unmaximize: `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2.5 2.5H7.5V7.5H2.5V2.5ZM0 0V10H10V0H0ZM1 1H9V9H1V1Z" /></svg>` /* Placeholder logic */,
 };

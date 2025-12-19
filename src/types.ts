@@ -7,6 +7,7 @@ export interface AppConfig {
   soundEnabled: boolean;
   shortcutEnabled: boolean;
   recordMode: 'toggle' | 'hold';
+  notificationEnabled: boolean;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -19,6 +20,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   soundEnabled: true,
   shortcutEnabled: true,
   recordMode: 'toggle',
+  notificationEnabled: true,
 };
 
 export interface HistoryItem {

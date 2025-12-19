@@ -1,4 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { enable, disable } from '@tauri-apps/plugin-autostart';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { ICONS } from './ui/icons';
@@ -10,10 +12,13 @@ import { audioController } from './lib/audio';
 import { shortcutManager } from './lib/shortcuts';
 import { showToast } from './ui/toast';
 import { formatDuration } from './lib/utils';
+import { renderTitleBar } from './ui/titlebar';
+import './styles/titlebar.css';
 
 // State
 let isRecording = false;
 let isTranscribing = false;
+let isCancelled = false;
 let startTime = 0;
 let recordTimer: any = null;
 
@@ -96,6 +101,7 @@ async function stopRecord() {
   if (!isRecording) return;
 
   isRecording = false;
+  isCancelled = false; // Reset cancellation flag
   const config = await getConfig();
   if (config.soundEnabled) audioController.playEnd();
   clearInterval(recordTimer);
@@ -125,6 +131,12 @@ async function stopRecord() {
         userAgent: config.userAgent,
       });
 
+      // Check if cancelled while waiting for transcription
+      if (isCancelled) {
+        isCancelled = false;
+        return; // User cancelled, don't process result
+      }
+
       if (!text || text.trim().length === 0) {
         await historyManager.add({
           timestamp: id,
@@ -135,9 +147,11 @@ async function stopRecord() {
       } else {
         await historyManager.add({ timestamp: id, text, duration });
 
-        // Auto Copy/Paste
+        // Auto Copy
         if (config.autoCopy) {
           await writeText(text);
+
+          // Auto-paste if enabled
           if (config.autoPaste) {
             const settingsOpen = document
               .getElementById('settings-overlay')
@@ -147,6 +161,20 @@ async function stopRecord() {
             } else {
               setTimeout(() => invoke('paste_text'), 100);
               showToast('Pasted');
+            }
+          }
+
+          // Send notification if enabled (independent of auto-paste)
+          if (config.notificationEnabled) {
+            try {
+              await invoke('send_notification', {
+                title: 'Whisper+',
+                body: config.autoPaste
+                  ? 'Transcription pasted!'
+                  : 'Transcription copied to clipboard. Press Ctrl+V to paste.',
+              });
+            } catch (notifErr) {
+              console.error('Notification error:', notifErr);
             }
           }
         }
@@ -175,6 +203,17 @@ async function stopRecord() {
 
 async function cancelRecord() {
   const config = await getConfig();
+
+  // If transcribing, set cancelled flag (will be handled by stopRecord)
+  if (isTranscribing) {
+    isCancelled = true;
+    isTranscribing = false;
+    showToast('Cancelled');
+    updateRecUI();
+    return;
+  }
+
+  // If recording, stop and play end sound
   if (isRecording && config.soundEnabled) audioController.playEnd();
   isRecording = false;
   clearInterval(recordTimer);
@@ -193,6 +232,8 @@ async function init() {
   try {
     const app = document.getElementById('app');
     if (app) renderLayout(app);
+
+    renderTitleBar();
 
     await initStore();
     const config = await getConfig();
@@ -219,7 +260,7 @@ async function init() {
     // Listeners for Settings UI (Bind Inputs)
     setupSettings(config);
 
-    // Shortcuts
+    // Shortcuts (X11/rdev based - works when XWayland apps focused)
     if (config.shortcutEnabled) {
       await shortcutManager.enable(config.recordMode, {
         onToggle: toggleRecord,
@@ -228,16 +269,30 @@ async function init() {
       });
     }
 
+    // Listen for CLI toggle events (GNOME custom keybinding -> whisper-plus --toggle)
+    // This enables toggle mode on Wayland when native apps are focused
+    listen('cli-toggle', () => {
+      console.log('CLI toggle triggered');
+      toggleRecord();
+    });
+
     // Periodic History Check (e.g. for relative time updates)
     setInterval(() => historyUI.render(), 60000);
+
+    // Show window after content is ready (prevents white flash)
+    await getCurrentWindow().show();
   } catch (e) {
     console.error('App Init Error', e);
   }
 }
 
-function setupSettings(initialConfig: any) {
+async function setupSettings(initialConfig: any) {
   // Bind all inputs in settings modal
   const overlay = document.getElementById('settings-overlay');
+
+  // Check session type once (for disabling Wayland-incompatible features)
+  const sessionType = await invoke<string>('get_session_type');
+  const isWayland = sessionType === 'wayland';
 
   // Open/Close
   document
@@ -264,6 +319,28 @@ function setupSettings(initialConfig: any) {
   bindToggle('autocopy-input', 'autoCopy');
   bindToggle('autopaste-input', 'autoPaste');
   bindToggle('sound-input', 'soundEnabled');
+  bindToggle('notification-input', 'notificationEnabled');
+
+  // On Wayland, show info message when auto-paste is enabled (it only works with XWayland apps)
+  if (isWayland) {
+    const autoPasteInput = document.getElementById(
+      'autopaste-input'
+    ) as HTMLInputElement;
+    const infoBox = document.getElementById('autopaste-wayland-info');
+
+    // Show/hide info based on current state
+    const updateInfoVisibility = () => {
+      if (infoBox) {
+        infoBox.style.display = autoPasteInput?.checked ? 'block' : 'none';
+      }
+    };
+
+    // Initial state
+    updateInfoVisibility();
+
+    // Listen for changes
+    autoPasteInput?.addEventListener('change', updateInfoVisibility);
+  }
 
   // Autostart special
   const asInput = document.getElementById(
@@ -323,6 +400,22 @@ function setupSettings(initialConfig: any) {
 
   // Mode
   const modeBtns = document.querySelectorAll('.segment-btn');
+  const holdBtn = document.querySelector(
+    '.segment-btn[data-mode="hold"]'
+  ) as HTMLElement;
+
+  // Disable hold button on Wayland
+  if (isWayland && holdBtn) {
+    holdBtn.classList.add('disabled');
+    holdBtn.title =
+      'Hold mode is not available on Wayland due to compositor limitations';
+
+    // If user had hold mode selected, switch to toggle
+    if (initialConfig.recordMode === 'hold') {
+      await updateConfig('recordMode', 'toggle');
+    }
+  }
+
   const updateModeUI = (mode: string) => {
     modeBtns.forEach((b) => {
       if ((b as HTMLElement).dataset.mode === mode) b.classList.add('active');
@@ -336,11 +429,25 @@ function setupSettings(initialConfig: any) {
           : 'Hold to Record, Release to Stop.';
     }
   };
-  updateModeUI(initialConfig.recordMode);
+  // Use toggle on Wayland if hold was selected
+  const effectiveMode =
+    isWayland && initialConfig.recordMode === 'hold'
+      ? 'toggle'
+      : initialConfig.recordMode;
+  updateModeUI(effectiveMode);
 
   modeBtns.forEach((btn) => {
     btn.addEventListener('click', async (e: any) => {
       const mode = e.target.dataset.mode;
+
+      // Block hold mode on Wayland
+      if (mode === 'hold' && isWayland) {
+        showToast(
+          'Hold mode is not available on Wayland. Global shortcuts on Wayland can only detect key press, not release.'
+        );
+        return;
+      }
+
       await updateConfig('recordMode', mode);
       updateModeUI(mode);
 
@@ -366,6 +473,10 @@ function setupSettings(initialConfig: any) {
         await updateConfig('autoCopy', DEFAULT_CONFIG.autoCopy);
         await updateConfig('autoPaste', DEFAULT_CONFIG.autoPaste);
         await updateConfig('soundEnabled', DEFAULT_CONFIG.soundEnabled);
+        await updateConfig(
+          'notificationEnabled',
+          DEFAULT_CONFIG.notificationEnabled
+        );
         await updateConfig('shortcutEnabled', DEFAULT_CONFIG.shortcutEnabled);
         await updateConfig('recordMode', DEFAULT_CONFIG.recordMode);
         // Autostart default is false, so disable it
@@ -382,6 +493,9 @@ function setupSettings(initialConfig: any) {
         ).checked = DEFAULT_CONFIG.autoPaste;
         (document.getElementById('sound-input') as HTMLInputElement).checked =
           DEFAULT_CONFIG.soundEnabled;
+        (
+          document.getElementById('notification-input') as HTMLInputElement
+        ).checked = DEFAULT_CONFIG.notificationEnabled;
         (
           document.getElementById('shortcut-enable-input') as HTMLInputElement
         ).checked = DEFAULT_CONFIG.shortcutEnabled;

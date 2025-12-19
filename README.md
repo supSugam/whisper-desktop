@@ -56,6 +56,26 @@ Whisper+ requires a valid ChatGPT session token to communicate with the OpenAI A
 
 **Note**: If you experience connection issues, you may also need to copy your browser's "User Agent" string into the application settings to match your session.
 
+## Wayland Users (Linux)
+
+On Wayland, global shortcuts work differently due to security limitations. **Hold mode** is not available, and shortcuts require a custom setup:
+
+### Setting Up Keyboard Shortcuts on GNOME
+
+1. Open **Settings** → **Keyboard** → **Keyboard Shortcuts** → **View and Customize Shortcuts**
+2. Scroll to the bottom and click **Custom Shortcuts**
+3. Click the **+** button to add a new shortcut
+4. Fill in the details:
+   - **Name**: `Whisper+ Toggle` or whatever you want
+   - **Command**: `/usr/bin/whisper-plus --toggle`
+   - **Shortcut**: Press your desired key combination (e.g., `Ctrl+Alt+Space`)
+5. Click **Add**
+
+Now you can use your shortcut to toggle recording from any application!
+
+> [!NOTE]
+> **Auto-paste limitation**: On Wayland, auto-paste only works with XWayland apps (most Electron apps like Discord, VSCode etc). Native Wayland apps like GNOME Files won't receive the paste.
+
 ## Development
 
 To build the application from source:
