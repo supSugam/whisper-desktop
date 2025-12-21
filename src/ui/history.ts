@@ -75,54 +75,80 @@ export class HistoryUI {
     }
 
     private buildItem(item: HistoryItem): string {
-        const safeText = this.escapeHtml(item.text);
-        // We put raw text in data attribute for copy (be careful of size, but usually ok for phrases)
-        // Actually, cleaner to keep it simple.
-        
-        const isError = !!item.error;
-        const isEmpty = !item.text || item.text.trim().length === 0;
-        
-        const ago = timeAgo(item.timestamp);
-        const dur = item.duration ? formatDuration(item.duration) : '';
+      const safeText = this.escapeHtml(item.text);
+      // We put raw text in data attribute for copy (be careful of size, but usually ok for phrases)
+      // Actually, cleaner to keep it simple.
 
-        // Determine specific class
-        let cardClass = 'history-item';
-        if (isError) cardClass += ' error';
-        if (isEmpty) cardClass += ' empty';
+      const isError = !!item.error;
+      const isEmpty = !item.text || item.text.trim().length === 0;
 
-        // Meta Row
-        let metaContent = '';
-        if (isError) {
-             metaContent = `<span style="color: var(--danger-color)">${ago} • Error</span>`;
-        } else if (isEmpty) {
-             metaContent = `<span>${ago} ${dur ? `<span class="duration-chip">${dur}</span>` : ''}</span> <span style="color: var(--warning-color)">Silence</span>`;
-        } else {
-             metaContent = `<span>${ago} ${dur ? `<span class="duration-chip">${dur}</span>` : ''}</span>`;
-        }
+      const ago = timeAgo(item.timestamp);
+      const dur = item.duration ? formatDuration(item.duration) : '';
 
-        // Actions
-        let actions = '';
-        if (!isError && !isEmpty) {
-            actions = `
-             <button class="action-btn" data-action="copy" data-text="${this.escapeAttr(item.text)}" title="Copy">${ICONS.copy}</button>
-             <button class="action-btn delete" data-action="delete" data-id="${item.timestamp}" title="Delete">${ICONS.trash}</button>
+      // Determine specific class
+      let cardClass = 'history-item';
+      if (isError) cardClass += ' error';
+      if (isEmpty) cardClass += ' empty';
+
+      let leftContent = `<span>${ago}</span>`;
+      if (dur) leftContent += `<span class="duration-chip">${dur}</span>`;
+      if (!dur && isEmpty)
+        leftContent += ` <span style="color: var(--warning-color)">Silence</span>`;
+      if (isError)
+        leftContent = `<span style="color: var(--danger-color)">${ago} • Error</span>`;
+
+      const processDur = item.processingTime
+        ? `${(item.processingTime / 1000).toFixed(1)}s`
+        : '';
+      const backend = item.backend || '';
+
+      let pills = [];
+      if (backend) {
+        const isCloud = backend.includes('Cloud');
+        const isGPU = backend.includes('GPU');
+        let cls = isCloud ? 'pill-cloud' : isGPU ? 'pill-gpu' : 'pill-cpu';
+        let icon = isCloud ? ICONS.cloud : isGPU ? ICONS.gpu : ICONS.cpu;
+        pills.push(
+          `<span class="info-pill ${cls}" title="Engine">${icon} ${backend}</span>`
+        );
+      }
+      if (processDur)
+        pills.push(
+          `<span class="info-pill pill-time" title="Processing Time">${ICONS.timer} ${processDur}</span>`
+        );
+
+      let actions = '';
+      if (!isError && !isEmpty) {
+        actions = `
+             <button class="action-btn" data-action="copy" data-text="${this.escapeAttr(
+               item.text
+             )}" title="Copy">${ICONS.copy}</button>
+             <button class="action-btn delete" data-action="delete" data-id="${
+               item.timestamp
+             }" title="Delete">${ICONS.trash}</button>
             `;
-        } else {
-            actions = `<button class="action-btn delete" data-action="delete" data-id="${item.timestamp}">${ICONS.trash}</button>`;
-        }
+      } else {
+        actions = `<button class="action-btn delete" data-action="delete" data-id="${item.timestamp}">${ICONS.trash}</button>`;
+      }
 
-        // Content
-        let content = '';
-        if (isError) content = `<div>${safeText}</div>`;
-        else if (isEmpty) content = `<div><em>(No speech detected)</em></div>`;
-        else content = `<div class="item-content">${safeText}</div>`;
+      let content = '';
+      if (isError) content = `<div>${safeText}</div>`;
+      else if (isEmpty) content = `<div><em>(No speech detected)</em></div>`;
+      else content = `<div class="item-content">${safeText}</div>`;
 
-        return `
+      return `
         <div class="${cardClass}" id="item-${item.timestamp}">
             <div class="meta-row">
-                ${metaContent}
-                <div class="item-actions">
-                    ${actions}
+                <div class="meta-left">
+                    ${leftContent}
+                </div>
+                <div class="meta-right">
+                    <div class="pills-row">
+                        ${pills.join('')}
+                    </div>
+                    <div class="item-actions">
+                        ${actions}
+                    </div>
                 </div>
             </div>
             ${content}

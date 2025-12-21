@@ -21,6 +21,55 @@ pub fn get_session_type() -> String {
     env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".to_string())
 }
 
+use sysinfo::System;
+
+#[derive(serde::Serialize)]
+pub struct SystemStats {
+    total_memory: u64,
+    free_memory: u64,
+    cpu_cores: usize,
+    has_nvidia: bool,
+    has_amd: bool,
+    backend: String,
+}
+
+#[tauri::command]
+pub fn get_system_stats() -> SystemStats {
+    let mut sys = System::new_all();
+    sys.refresh_all();
+
+    let total_memory = sys.total_memory();
+    let free_memory = sys.free_memory();
+    let cpu_cores = sys.cpus().len();
+    
+    // Features check
+    let backend = if cfg!(feature = "cuda") {
+        "CUDA (NVIDIA)".to_string()
+    } else if cfg!(feature = "vulkan") {
+        "Vulkan".to_string()
+    } else if cfg!(feature = "rocm") {
+        "ROCm (AMD)".to_string()
+    } else {
+        "CPU".to_string()
+    };
+
+    // Check for GPU presence via CLI commands (linux only for now)
+    let has_nvidia = std::path::Path::new("/usr/bin/nvidia-smi").exists() || 
+                     std::path::Path::new("/proc/driver/nvidia").exists();
+                     
+    // AMD check mechanism? `rocminfo` or `/dev/kfd`
+    let has_amd = std::path::Path::new("/dev/kfd").exists();
+
+    SystemStats {
+        total_memory,
+        free_memory,
+        cpu_cores,
+        has_nvidia,
+        has_amd,
+        backend,
+    }
+}
+
 #[tauri::command]
 pub fn send_notification(title: String, body: String) -> Result<(), String> {
     #[cfg(target_os = "linux")]

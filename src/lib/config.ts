@@ -24,6 +24,13 @@ export async function getConfig(): Promise<AppConfig> {
   const shortcutEnabled = await store.get<boolean>('shortcutEnabled');
   const recordMode = await store.get<'toggle' | 'hold'>('recordMode');
   const notificationEnabled = await store.get<boolean>('notificationEnabled');
+  const transcriptionEngine = await store.get<'cloud' | 'local'>(
+    'transcriptionEngine'
+  );
+  const localModel = await store.get<string>('localModel');
+  const useLocalGPU = await store.get<boolean>('useLocalGPU');
+  const globalShortcut = await store.get<string>('globalShortcut');
+  const localTranslate = await store.get<boolean>('localTranslate');
 
   // Check Autostart status dynamically
   let autostart = false;
@@ -44,6 +51,12 @@ export async function getConfig(): Promise<AppConfig> {
     recordMode: recordMode ?? DEFAULT_CONFIG.recordMode,
     notificationEnabled:
       notificationEnabled ?? DEFAULT_CONFIG.notificationEnabled,
+    transcriptionEngine:
+      transcriptionEngine ?? DEFAULT_CONFIG.transcriptionEngine,
+    localModel: localModel ?? DEFAULT_CONFIG.localModel,
+    useLocalGPU: useLocalGPU ?? DEFAULT_CONFIG.useLocalGPU,
+    globalShortcut: globalShortcut ?? DEFAULT_CONFIG.globalShortcut,
+    localTranslate: localTranslate ?? DEFAULT_CONFIG.localTranslate,
   };
 
   return cachedConfig;

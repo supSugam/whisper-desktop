@@ -1,6 +1,6 @@
 [package]
 name = "whisper-plus"
-version = "1.0.2"
+version = "1.0.3"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -24,10 +24,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 cpal = "0.16.0"
 hound = "3.5.1"
-reqwest = { version = "0.12.26", default-features = false, features = ["rustls-tls", "json", "multipart"] }
+reqwest = { version = "0.12.26", default-features = false, features = ["rustls-tls", "json", "multipart", "stream"] }
+whisper-rs = "0.13.2"
+futures-util = "0.3"
 open = "5.3.3"
 tauri-plugin-store = "2"
 tauri-plugin-clipboard-manager = "2"
+sysinfo = "0.30"
 enigo = "0.6.1"
 rodio = "0.19"
 
@@ -35,4 +38,11 @@ rodio = "0.19"
 tauri-plugin-autostart = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
+
+[features]
+default = ["custom-protocol", "vulkan"]
+custom-protocol = ["tauri/custom-protocol"]
+cuda = ["whisper-rs/cuda"]
+vulkan = ["whisper-rs/vulkan"]
+rocm = ["whisper-rs/hipblas"]
 

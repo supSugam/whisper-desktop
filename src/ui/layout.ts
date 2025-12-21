@@ -53,6 +53,14 @@ export function renderLayout(appEl: HTMLElement) {
                             <span class="slider"></span>
                         </label>
                     </div>
+                    
+                    <div class="form-row" id="shortcut-recorder-row">
+                         <label class="form-label">Shortcut</label>
+                         <div class="shortcut-recorder">
+                            <input type="text" id="shortcut-value-input" class="shortcut-input" readonly placeholder="Click to record...">
+                            <button id="shortcut-record-btn" class="icon-btn-sm" title="Record New Shortcut">🔴</button>
+                         </div>
+                    </div>
                     <div id="shortcut-status" class="status-text">Checking...</div>
                     
                     <div class="form-row" style="align-items: flex-start; flex-direction:column; gap:12px;">
@@ -112,7 +120,40 @@ export function renderLayout(appEl: HTMLElement) {
                          <div style="font-size:0.8rem; opacity:0.6;">History management is now on the main screen.</div>
                     </div>
 
-                    <div class="section-title section-auth">Authentication</div>
+                    <div class="section-title">Transcription Engine</div>
+                    <div class="form-row" style="align-items: flex-start; flex-direction:column; gap:12px;">
+                        <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                            <label class="form-label">Provider</label>
+                            
+                            <div class="segmented-control">
+                                <button class="segment-btn" data-engine="cloud">Cloud (ChatGPT)</button>
+                                <button class="segment-btn" data-engine="local">Local (Whisper)</button>
+                            </div>
+                        </div>
+                        <div class="form-text" id="engine-desc"></div>
+                    </div>
+
+                    <div id="local-model-section" style="display:none;">
+                         <div class="form-label" style="margin-bottom:8px;">Local Models (CPU Optimized)</div>
+                         <div id="model-manager-container">Loading models...</div>
+                         
+                         <div class="form-row" style="margin-top:12px; margin-bottom:8px;">
+                             <label class="form-label">Translate to English</label>
+                             <label class="toggle-switch">
+                                 <input type="checkbox" id="local-translate-input">
+                                 <span class="slider"></span>
+                             </label>
+                         </div>
+                         <div class="form-text" style="margin-top:-6px; margin-bottom:8px; opacity:0.7;">
+                             Transcribe other languages into English text.
+                         </div>
+
+                         <div class="form-info-box">
+                            ⚠️ Models are downloaded to your device. Performance depends on your CPU. "Tiny" is recommended for most users.
+                         </div>
+                    </div>
+
+                    <div class="section-title section-auth" id="auth-section-title">Authentication</div>
                     <div class="form-group">
                         <label class="form-label">ChatGPT Session Token</label>
                         <input id="token-input" class="form-input" type="password" placeholder="Paste token here">
@@ -129,7 +170,6 @@ export function renderLayout(appEl: HTMLElement) {
                         </div>
                     </div>
 
-                     <!-- Detailed Guide -->
                     <div class="guide-box">
                         <div class="guide-header">How to retrieve your token</div>
 

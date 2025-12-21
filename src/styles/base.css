@@ -33,6 +33,12 @@ a:hover {
   70% { box-shadow: 0 0 0 15px rgba(5, 150, 105, 0); }
   100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
 }
+
+@keyframes pulse-large {
+  0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
+  70% { box-shadow: 0 0 0 25px rgba(5, 150, 105, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+}
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

@@ -8,24 +8,38 @@ export interface AppConfig {
   shortcutEnabled: boolean;
   recordMode: 'toggle' | 'hold';
   notificationEnabled: boolean;
+  transcriptionEngine: 'cloud' | 'local';
+  localModel: string;
+  useLocalGPU?: boolean;
+  globalShortcut?: string;
+  alwaysOnTop?: boolean;
+  localTranslate?: boolean;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
   token: '',
   userAgent:
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  transcriptionEngine: 'cloud',
+  recordMode: 'hold',
+  alwaysOnTop: false,
   autoCopy: true,
-  autoPaste: true,
-  autostart: false,
+  autoPaste: false,
   soundEnabled: true,
-  shortcutEnabled: true,
-  recordMode: 'toggle',
   notificationEnabled: true,
+  autostart: true,
+  shortcutEnabled: true,
+  localModel: 'Tiny',
+  useLocalGPU: false,
+  globalShortcut: 'Ctrl+Alt+Space',
+  localTranslate: false,
 };
 
 export interface HistoryItem {
   timestamp: number;
   text: string;
+  duration: number; // Audio duration in ms
   error?: boolean;
-  duration?: number;
+  backend?: string; // 'Cloud', 'CPU', 'GPU'
+  processingTime?: number; // Transcription time in ms
 }

@@ -122,9 +122,14 @@ pub fn run() {
             commands::system::open_link,
             commands::system::paste_text,
             commands::system::get_session_type,
+            commands::system::get_system_stats,
             commands::system::send_notification,
             commands::sounds::play_start_sound,
             commands::sounds::play_end_sound,
+            commands::local::transcribe_local,
+            commands::manager::check_model_exists,
+            commands::manager::download_model,
+            commands::manager::delete_model,
             was_autostarted
         ])
         .run(tauri::generate_context!())

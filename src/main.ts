@@ -14,6 +14,8 @@ import { showToast } from './ui/toast';
 import { formatDuration } from './lib/utils';
 import { renderTitleBar } from './ui/titlebar';
 import './styles/titlebar.css';
+import './styles/manager.css';
+import { modelManager } from './ui/manager';
 
 // State
 let isRecording = false;
@@ -76,7 +78,7 @@ async function startRecord() {
   }
 
   const config = await getConfig();
-  if (!config.token) {
+  if (!config.token && config.transcriptionEngine !== 'local') {
     alert('Please set your ChatGPT token in settings first.');
     return;
   }
@@ -125,11 +127,35 @@ async function stopRecord() {
     const id = Date.now();
 
     try {
-      const text = await invoke<string>('transcribe', {
-        path,
-        token: config.token,
-        userAgent: config.userAgent,
-      });
+      let text = '';
+      const tStart = Date.now();
+      let backendInfo = '';
+
+      if (config.transcriptionEngine === 'local') {
+        const useGpu = config.useLocalGPU || false;
+        // Ideally we'd know generic 'GPU' or specific 'Vulkan/CUDA', but config just knows bool.
+        // We can check the system stats if we wanted, but for now 'Local (GPU)' is enough.
+        backendInfo = useGpu ? 'Local (GPU)' : 'Local (CPU)';
+
+        text = await invoke<string>('transcribe_local', {
+          path,
+          model: config.localModel || 'Tiny',
+          useGpu,
+          translate: config.localTranslate || false,
+        });
+      } else {
+        if (!config.token)
+          throw new Error('Please set your ChatGPT token in settings.');
+
+        backendInfo = 'Cloud (ChatGPT)';
+        text = await invoke<string>('transcribe', {
+          path,
+          token: config.token,
+          userAgent: config.userAgent,
+        });
+      }
+
+      const processingTime = Date.now() - tStart;
 
       // Check if cancelled while waiting for transcription
       if (isCancelled) {
@@ -143,9 +169,17 @@ async function stopRecord() {
           text: '',
           duration,
           error: false,
+          backend: backendInfo,
+          processingTime,
         }); // Empty
       } else {
-        await historyManager.add({ timestamp: id, text, duration });
+        await historyManager.add({
+          timestamp: id,
+          text,
+          duration,
+          backend: backendInfo,
+          processingTime,
+        });
 
         // Auto Copy
         if (config.autoCopy) {
@@ -262,11 +296,15 @@ async function init() {
 
     // Shortcuts (X11/rdev based - works when XWayland apps focused)
     if (config.shortcutEnabled) {
-      await shortcutManager.enable(config.recordMode, {
-        onToggle: toggleRecord,
-        onPress: startRecord,
-        onRelease: stopRecord,
-      });
+      await shortcutManager.enable(
+        config.recordMode,
+        {
+          onToggle: toggleRecord,
+          onPress: startRecord,
+          onRelease: stopRecord,
+        },
+        config.globalShortcut
+      );
     }
 
     // Listen for CLI toggle events (GNOME custom keybinding -> whisper-plus --toggle)
@@ -320,6 +358,7 @@ async function setupSettings(initialConfig: any) {
   bindToggle('autopaste-input', 'autoPaste');
   bindToggle('sound-input', 'soundEnabled');
   bindToggle('notification-input', 'notificationEnabled');
+  bindToggle('local-translate-input', 'localTranslate');
 
   // On Wayland, show info message when auto-paste is enabled (it only works with XWayland apps)
   if (isWayland) {
@@ -376,26 +415,138 @@ async function setupSettings(initialConfig: any) {
     });
   }
 
-  // Shortcut
   const scInput = document.getElementById(
     'shortcut-enable-input'
   ) as HTMLInputElement;
-  if (scInput) {
-    scInput.checked = initialConfig.shortcutEnabled;
-    scInput.addEventListener('change', async (e: any) => {
-      const enabled = e.target.checked;
-      await updateConfig('shortcutEnabled', enabled);
+  const scRow = scInput?.closest('.form-row') as HTMLElement;
+  const scRecRow = document.getElementById('shortcut-recorder-row');
+
+  if (isWayland) {
+    if (scRow) scRow.style.display = 'none';
+    if (scRecRow) scRecRow.style.display = 'none';
+    if (document.getElementById('shortcut-status')) {
+      document.getElementById('shortcut-status')!.style.display = 'none';
+    }
+
+    const waylandMsg = document.createElement('div');
+    waylandMsg.className = 'form-info-box';
+    waylandMsg.innerHTML = `
+        <strong>Wayland Detected</strong><br>
+        Global hotkeys are restricted by the compositor. <br>
+        To set a shortcut:<br>
+        1. Open <strong>System Settings > Keyboard > Shortcuts</strong><br>
+        2. Create a custom shortcut<br>
+        3. Command: <code>whisper-plus --toggle</code>
+      `;
+    if (scRow && scRow.parentNode) {
+      scRow.parentNode.insertBefore(waylandMsg, scRow);
+    }
+  } else {
+    if (scInput) {
+      scInput.checked = initialConfig.shortcutEnabled;
+      scInput.addEventListener('change', async (e: any) => {
+        const enabled = e.target.checked;
+        await updateConfig('shortcutEnabled', enabled);
+        const cfg = await getConfig();
+        if (enabled) {
+          await shortcutManager.enable(
+            cfg.recordMode,
+            {
+              onToggle: toggleRecord,
+              onPress: startRecord,
+              onRelease: stopRecord,
+            },
+            cfg.globalShortcut
+          );
+        } else {
+          await shortcutManager.disable();
+        }
+      });
+    }
+  }
+
+  // Custom Shortcut Recorder
+  const scValInput = document.getElementById(
+    'shortcut-value-input'
+  ) as HTMLInputElement;
+  const scRecBtn = document.getElementById('shortcut-record-btn');
+
+  if (scValInput) {
+    scValInput.value = initialConfig.globalShortcut || 'Ctrl+Alt+Space';
+
+    let recording = false;
+    const stopRecording = () => {
+      recording = false;
+      scValInput.classList.remove('recording');
+      scValInput.placeholder = 'Click to record...';
+      if (scRecBtn) scRecBtn.innerText = '🔴';
+      window.removeEventListener('keydown', handleKey);
+    };
+
+    const handleKey = async (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ignore modifier-only presses
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.metaKey) parts.push('Super');
+
+      // Format key
+      let k = e.key.toUpperCase();
+      if (k === ' ') k = 'Space';
+      parts.push(k);
+
+      const combo = parts.join('+');
+      scValInput.value = combo;
+
+      // Save & Apply
+      await updateConfig('globalShortcut', combo);
       const cfg = await getConfig();
-      if (enabled) {
-        await shortcutManager.enable(cfg.recordMode, {
-          onToggle: toggleRecord,
-          onPress: startRecord,
-          onRelease: stopRecord,
-        });
-      } else {
-        await shortcutManager.disable();
+      if (cfg.shortcutEnabled) {
+        await shortcutManager.enable(
+          cfg.recordMode,
+          {
+            onToggle: toggleRecord,
+            onPress: startRecord,
+            onRelease: stopRecord,
+          },
+          combo
+        );
       }
-    });
+
+      stopRecording();
+    };
+
+    const startRecording = () => {
+      if (recording) {
+        stopRecording();
+        return;
+      }
+      recording = true;
+      scValInput.value = '';
+      scValInput.placeholder = 'Press keys...';
+      scValInput.classList.add('recording');
+      if (scRecBtn) scRecBtn.innerText = '⬛';
+      window.addEventListener('keydown', handleKey);
+
+      // Click outside to cancel
+      const cancel = (ev: MouseEvent) => {
+        if (ev.target !== scValInput && ev.target !== scRecBtn) {
+          stopRecording();
+          scValInput.value = initialConfig.globalShortcut || 'Ctrl+Alt+Space'; // Revert visual
+          document.removeEventListener('click', cancel);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', cancel), 100);
+    };
+
+    scValInput.addEventListener('click', startRecording);
+    scRecBtn?.addEventListener('click', startRecording);
   }
 
   // Mode
@@ -453,11 +604,15 @@ async function setupSettings(initialConfig: any) {
 
       const cfg = await getConfig();
       if (cfg.shortcutEnabled) {
-        await shortcutManager.enable(mode, {
-          onToggle: toggleRecord,
-          onPress: startRecord,
-          onRelease: stopRecord,
-        });
+        await shortcutManager.enable(
+          mode,
+          {
+            onToggle: toggleRecord,
+            onPress: startRecord,
+            onRelease: stopRecord,
+          },
+          cfg.globalShortcut
+        );
       }
     });
   });
@@ -517,6 +672,57 @@ async function setupSettings(initialConfig: any) {
         showToast('Settings Reset');
       }
     });
+
+  // --- Engine & Model Manager ---
+  const localSection = document.getElementById('local-model-section');
+  const authSection = document.querySelector('.section-auth') as HTMLElement; // title
+  const tokenGroup = document.getElementById('token-input')?.parentElement; // input group
+  const uaGroup = document.getElementById('ua-input')?.parentElement; // input group
+  const engineBtns = document.querySelectorAll('.segment-btn[data-engine]');
+  const engineDesc = document.getElementById('engine-desc');
+
+  const updateEngineUI = (engine: string) => {
+    engineBtns.forEach((b) => {
+      if ((b as HTMLElement).dataset.engine === engine)
+        b.classList.add('active');
+      else b.classList.remove('active');
+    });
+
+    if (engine === 'local') {
+      localSection!.style.display = 'block';
+      authSection.style.opacity = '0.5';
+      tokenGroup!.style.opacity = '0.5';
+      tokenGroup!.style.pointerEvents = 'none';
+      uaGroup!.style.opacity = '0.5';
+      uaGroup!.style.pointerEvents = 'none';
+      if (engineDesc)
+        engineDesc.innerText =
+          'Privacy focused. Runs entirely on your machine. No account needed.';
+
+      // Init manager if visible
+      modelManager.init('model-manager-container');
+    } else {
+      localSection!.style.display = 'none';
+      authSection.style.opacity = '1';
+      tokenGroup!.style.opacity = '1';
+      tokenGroup!.style.pointerEvents = 'auto';
+      uaGroup!.style.opacity = '1';
+      uaGroup!.style.pointerEvents = 'auto';
+      if (engineDesc)
+        engineDesc.innerText =
+          "High accuracy. Uses ChatGPT's reversed API. Requires session token.";
+    }
+  };
+
+  updateEngineUI(initialConfig.transcriptionEngine || 'cloud');
+
+  engineBtns.forEach((btn) => {
+    btn.addEventListener('click', async (e: any) => {
+      const engine = e.target.dataset.engine;
+      await updateConfig('transcriptionEngine', engine);
+      updateEngineUI(engine);
+    });
+  });
 }
 
 // Go
