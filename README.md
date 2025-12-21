@@ -103,7 +103,7 @@ curl -fsSL https://raw.githubusercontent.com/supSugam/whisper-desktop/main/insta
 ```
 
 ### Manual Installation
-Download the latest installer from [Releases](https://github.com/supSugam/whisper-plus/releases/tag/v1.0.3):
+Download the latest installer from [Releases](https://github.com/supSugam/whisper-desktop/releases):
 -   **Windows**: `.exe`
 -   **Linux**: `.AppImage`, `.deb`
 -   **macOS**: `.dmg`
