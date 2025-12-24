@@ -187,6 +187,13 @@
     pointer-events: none;
 }
 
+/* Section disabled state (during recording) */
+.section-disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    filter: grayscale(0.4);
+}
+
 /* Card Header */
 .card-header {
     display: flex;
@@ -357,13 +364,15 @@
     min-height: 120px;
 }
 
-/* Transcribe Progress Bar */
+/* Transcribe Progress - Inline at bottom of audio input */
 .transcribe-progress {
     width: 100%;
     padding: 12px 0 0 0;
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
 }
 
 .progress-info {
@@ -373,47 +382,78 @@
 }
 
 .progress-status {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--text-secondary);
 }
 
-.progress-stats {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.progress-duration {
-    font-size: 0.7rem;
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--text-tertiary);
-}
-
 .progress-percent {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: var(--accent-color);
     font-family: 'JetBrains Mono', monospace;
+    min-width: 40px;
+    text-align: right;
 }
 
-.progress-track {
-    height: 4px;
+.progress-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progress-bar-container {
+    flex: 1;
+    height: 6px;
     background: rgba(255,255,255,0.08);
-    border-radius: 2px;
+    border-radius: 3px;
     overflow: hidden;
 }
 
-.progress-fill {
+.progress-bar-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--accent-color) 0%, #6366f1 50%, var(--accent-color) 100%);
     background-size: 200% 100%;
-    border-radius: 2px;
+    border-radius: 3px;
     transition: width 0.3s ease;
     animation: progressShimmer 2s linear infinite;
 }
 
-/* Legacy SRT Progress (can be removed later) */
+@keyframes progressShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.progress-time-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.time-processed {
+    color: var(--text-secondary);
+}
+
+.time-separator {
+    opacity: 0.5;
+}
+
+.time-total {
+    color: var(--text-tertiary);
+}
+
+.time-eta {
+    color: var(--accent-color);
+    font-weight: 500;
+    margin-left: 4px;
+}
+
+/* SRT Progress Bar */
 .srt-progress-container {
     width: 100%;
     padding: 16px 20px;

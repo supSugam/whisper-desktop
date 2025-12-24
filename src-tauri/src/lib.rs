@@ -12,9 +12,18 @@ use tauri::{
 // Track if app was launched via autostart
 static LAUNCHED_VIA_AUTOSTART: AtomicBool = AtomicBool::new(false);
 
+// Track if SRT/transcription should be cancelled
+pub static SRT_CANCELLED: AtomicBool = AtomicBool::new(false);
+
 #[tauri::command]
 fn was_autostarted() -> bool {
     LAUNCHED_VIA_AUTOSTART.load(Ordering::SeqCst)
+}
+
+#[tauri::command]
+fn cancel_transcription() -> bool {
+    SRT_CANCELLED.store(true, Ordering::SeqCst);
+    true
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -122,6 +131,7 @@ pub fn run() {
             commands::audio::stop_recording,
             commands::transcribe::transcribe,
             commands::system::open_link,
+            commands::system::open_folder,
             commands::system::paste_text,
             commands::system::get_session_type,
             commands::system::get_system_stats,
@@ -135,7 +145,8 @@ pub fn run() {
             commands::manager::delete_model,
             commands::manager::cancel_download,
             commands::srt::generate_srt,
-            was_autostarted
+            was_autostarted,
+            cancel_transcription
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

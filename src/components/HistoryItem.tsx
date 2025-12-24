@@ -39,42 +39,66 @@ export const HistoryItem: React.FC<HistoryItemProps> = ({ item }) => {
       }
     }
   };
-  
+
+  const handleOpenFolder = async () => {
+    if (item.srtPath) {
+      try {
+        await invoke('open_folder', { path: item.srtPath });
+      } catch (e) {
+        console.error('Failed to open folder:', e);
+      }
+    }
+  };
+
   const handleDelete = async () => {
     await removeItem(item.timestamp);
   };
-  
+
   const isError = !!item.error;
   const isEmpty = !item.text || item.text.trim().length === 0;
   const isSrt = !!item.isSrt;
-  
+
   const ago = timeAgo(item.timestamp);
   const dur = item.duration ? formatDuration(item.duration) : '';
-  
+
   let cardClass = 'history-item';
   if (isError) cardClass += ' error';
   if (isEmpty && !isSrt) cardClass += ' empty';
   if (isSrt) cardClass += ' srt-item';
-  
+
   const leftElements: React.ReactNode[] = [<span key="ago">{ago}</span>];
-  
+
   if (dur && !isSrt) {
-    leftElements.push(<span key="dur" className="duration-chip">{dur}</span>);
-  }
-  if (!dur && isEmpty && !isSrt) {
-    leftElements.push(<span key="silence" style={{ color: 'var(--warning-color)' }}>Silence</span>);
-  }
-  if (isError) {
-    leftElements.splice(0, leftElements.length, 
-      <span key="error" style={{ color: 'var(--danger-color)' }}>{ago} • Error</span>
+    leftElements.push(
+      <span key="dur" className="duration-chip">
+        {dur}
+      </span>
     );
   }
-  
-  const processDur = item.processingTime ? `${(item.processingTime / 1000).toFixed(1)}s` : '';
+  if (!dur && isEmpty && !isSrt) {
+    leftElements.push(
+      <span key="silence" style={{ color: 'var(--warning-color)' }}>
+        Silence
+      </span>
+    );
+  }
+  if (isError) {
+    leftElements.splice(
+      0,
+      leftElements.length,
+      <span key="error" style={{ color: 'var(--danger-color)' }}>
+        {ago} • Error
+      </span>
+    );
+  }
+
+  const processDur = item.processingTime
+    ? `${(item.processingTime / 1000).toFixed(1)}s`
+    : '';
   const backend = item.backend || '';
-  
+
   const pills: React.ReactNode[] = [];
-  
+
   // SRT badge
   if (isSrt) {
     pills.push(
@@ -100,14 +124,30 @@ export const HistoryItem: React.FC<HistoryItemProps> = ({ item }) => {
       </span>
     );
   }
-  
+
   const actions: React.ReactNode[] = [];
-  
-  if (isSrt && item.srtPath) {
+
+  if (isSrt && item.srtPath && !isError) {
     // Open file action for SRT
     actions.push(
-      <button key="open" className="action-btn" onClick={handleOpenFile} title="Open File">
+      <button
+        key="open"
+        className="action-btn"
+        onClick={handleOpenFile}
+        title="Open File"
+      >
         <span dangerouslySetInnerHTML={{ __html: ICONS.external }} />
+      </button>
+    );
+    // Open folder action
+    actions.push(
+      <button
+        key="folder"
+        className="action-btn"
+        onClick={handleOpenFolder}
+        title="Open Folder"
+      >
+        <span dangerouslySetInnerHTML={{ __html: ICONS.folder }} />
       </button>
     );
   }

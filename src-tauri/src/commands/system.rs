@@ -8,6 +8,50 @@ pub async fn open_link(url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), String> {
+    let file_path = std::path::Path::new(&path);
+    
+    #[cfg(target_os = "linux")]
+    {
+        // Use nautilus --select to open folder with file selected
+        let nautilus = std::process::Command::new("nautilus")
+            .arg("--select")
+            .arg(&path)
+            .spawn();
+        
+        if nautilus.is_err() {
+            // Fallback: just open parent directory
+            let folder = file_path.parent().unwrap_or(file_path);
+            std::process::Command::new("gio")
+                .arg("open")
+                .arg(folder)
+                .spawn()
+                .map_err(|e| format!("Failed to open folder: {}", e))?;
+        }
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        // -R reveals and selects the file in Finder
+        std::process::Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "windows")]
+    {
+        // /select, selects the file in Explorer
+        std::process::Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn paste_text() -> Result<(), String> {
 
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;

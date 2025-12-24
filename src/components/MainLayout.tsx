@@ -10,43 +10,47 @@ import { DashboardCard } from './DashboardCard';
 import { SrtPanel } from './SrtPanel';
 import { TranscribeProgress } from './TranscribeProgress';
 import { useConfigStore } from '../stores/useConfigStore';
+import { useRecordingStore } from '../stores/useRecordingStore';
 
 export const MainLayout: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { config } = useConfigStore();
-  
+  const { isRecording, isTranscribing } = useRecordingStore();
+
   const isCloudMode = config.transcriptionEngine === 'cloud';
+  const isBusy = isRecording || isTranscribing;
 
   return (
     <div className="main-layout-grid">
       {/* Sidebar: Search & History */}
       <div className="sidebar">
         <div className="sidebar-header">
-            <SearchBar />
+          <SearchBar />
         </div>
         <div className="sidebar-content">
-            <HistoryList />
+          <HistoryList />
         </div>
       </div>
 
       {/* Main Content: Dashboard */}
       <div className="main-content">
         <header className="main-header">
-           <div className="branding">
-             <h1 className="app-title">Whisper+</h1>
-           </div>
-           <button 
-             className="icon-btn settings-btn"
-             onClick={() => setIsSettingsOpen(true)}
-             title="Settings"
-             dangerouslySetInnerHTML={{ __html: ICONS.settings }}
-           />
+          <div className="branding">
+            <h1 className="app-title">Whisper+</h1>
+          </div>
+          <button
+            className="icon-btn settings-btn"
+            onClick={() => setIsSettingsOpen(true)}
+            title="Settings"
+            dangerouslySetInnerHTML={{ __html: ICONS.settings }}
+            disabled={isBusy}
+          />
         </header>
 
         <main className="dashboard">
           {/* Audio Input Card - Combined Record & Import */}
-          <DashboardCard 
-            title="Audio Input" 
+          <DashboardCard
+            title="Audio Input"
             icon={ICONS.mic}
             subtitle="Record or import audio/video files"
             fullWidth
@@ -66,33 +70,41 @@ export const MainLayout: React.FC = () => {
                 <span>or</span>
               </div>
 
-              {/* Import Section */}
-              <div className="audio-input-section import-section">
+              {/* Import Section - Disabled when recording */}
+              <div
+                className={`audio-input-section import-section ${
+                  isRecording ? 'section-disabled' : ''
+                }`}
+              >
                 <div className="section-label">Import</div>
                 <FileDropArea />
               </div>
             </div>
-            
+
             {/* Progress Bar - integrated at bottom */}
             <TranscribeProgress />
           </DashboardCard>
 
-          {/* SRT Generation Card - Disabled for Cloud Mode */}
-          <DashboardCard 
-            title="Subtitle Generation" 
+          {/* SRT Generation Card - Disabled for Cloud Mode or when busy */}
+          <DashboardCard
+            title="Subtitle Generation"
             icon={ICONS.download}
-            subtitle={isCloudMode ? "Only available with local Whisper" : "Generate SRT files from transcriptions"}
+            subtitle={
+              isCloudMode
+                ? 'Only available with local Whisper'
+                : 'Generate SRT files from transcriptions'
+            }
             fullWidth
-            disabled={isCloudMode}
+            disabled={isCloudMode || isBusy}
           >
-            <SrtPanel disabled={isCloudMode} />
+            <SrtPanel disabled={isCloudMode || isBusy} />
           </DashboardCard>
         </main>
       </div>
 
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );

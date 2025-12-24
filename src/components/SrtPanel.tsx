@@ -43,12 +43,14 @@ export const SrtPanel: React.FC<SrtPanelProps> = ({ disabled = false }) => {
         <div className="srt-option-row">
           <div className="option-info">
             <span className="option-label">Enable SRT Output</span>
-            <span className="option-hint">Generate subtitle file alongside transcription</span>
+            <span className="option-hint">
+              Generate SRT subtitle file instead of text transcription
+            </span>
           </div>
           <label className="toggle-switch">
-            <input 
-              type="checkbox" 
-              checked={enabled} 
+            <input
+              type="checkbox"
+              checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
               disabled={isDisabled}
             />
@@ -63,14 +65,14 @@ export const SrtPanel: React.FC<SrtPanelProps> = ({ disabled = false }) => {
             <span className="option-hint">Where to save the .srt file</span>
           </div>
           <div className="filename-mode-toggle">
-            <button 
+            <button
               className={`mode-btn ${outputPath === 'default' ? 'active' : ''}`}
               onClick={() => setOutputPath('default')}
               disabled={isDisabled || !enabled}
             >
               Documents
             </button>
-            <button 
+            <button
               className={`mode-btn ${outputPath === 'sameas' ? 'active' : ''}`}
               onClick={() => setOutputPath('sameas')}
               disabled={isDisabled || !enabled}
@@ -82,27 +84,29 @@ export const SrtPanel: React.FC<SrtPanelProps> = ({ disabled = false }) => {
 
         {/* Default path info */}
         {outputPath === 'default' && enabled && defaultPath && !isDisabled && (
-          <div className="srt-path-info">
-            {defaultPath}
-          </div>
+          <div className="srt-path-info">{defaultPath}</div>
         )}
 
         {/* Filename Mode */}
         <div className="srt-option-row">
           <div className="option-info">
             <span className="option-label">Filename</span>
-            <span className="option-hint">How the .srt file should be named</span>
+            <span className="option-hint">
+              How the .srt file should be named
+            </span>
           </div>
           <div className="filename-mode-toggle">
-            <button 
+            <button
               className={`mode-btn ${filenameMode === 'same' ? 'active' : ''}`}
               onClick={() => setFilenameMode('same')}
               disabled={isDisabled || !enabled}
             >
               Same as file
             </button>
-            <button 
-              className={`mode-btn ${filenameMode === 'custom' ? 'active' : ''}`}
+            <button
+              className={`mode-btn ${
+                filenameMode === 'custom' ? 'active' : ''
+              }`}
               onClick={() => setFilenameMode('custom')}
               disabled={isDisabled || !enabled}
             >

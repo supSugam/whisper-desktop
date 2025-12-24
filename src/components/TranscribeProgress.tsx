@@ -9,127 +9,149 @@ interface ProgressPayload {
   status: string;
 }
 
+// Animated number component
+const AnimatedNumber: React.FC<{ value: number; duration?: number }> = ({ 
+  value, 
+  duration = 300 
+}) => {
+  const [displayValue, setDisplayValue] = useState(value);
+  const previousValue = useRef(value);
+
+  useEffect(() => {
+    const startValue = previousValue.current;
+    const endValue = value;
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValue + (endValue - startValue) * eased);
+      
+      setDisplayValue(current);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        previousValue.current = value;
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+
+  return <>{displayValue}</>;
+};
+
+// Format duration as human-readable (1h 23m 45s)
+const formatHumanDuration = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+
+  return parts.join(' ');
+};
+
 export const TranscribeProgress: React.FC = () => {
   const { isTranscribing } = useRecordingStore();
   const [progress, setProgress] = useState<ProgressPayload | null>(null);
-  const [displayPercent, setDisplayPercent] = useState(0);
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const timerRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   useEffect(() => {
-    const unlisten = listen<ProgressPayload>('transcribe-progress', (event) => {
-      setProgress(event.payload);
-      
-      // When we get "transcribing" status, that's when real work starts
-      if (event.payload.status === 'transcribing' && startTimeRef.current === 0) {
-        startTimeRef.current = Date.now();
+    const unlisten1 = listen<ProgressPayload>(
+      'transcribe-progress',
+      (event) => {
+        setProgress(event.payload);
       }
+    );
+
+    const unlisten2 = listen<ProgressPayload>('srt-progress', (event) => {
+      setProgress(event.payload);
     });
 
     return () => {
-      unlisten.then(fn => fn());
+      unlisten1.then((fn) => fn());
+      unlisten2.then((fn) => fn());
     };
   }, []);
 
-  // Timer for elapsed time and smooth progress
+  // Track start time for ETA calculation
   useEffect(() => {
-    if (isTranscribing) {
-      startTimeRef.current = 0;
-      setDisplayPercent(0);
-      setElapsedSec(0);
-      
-      timerRef.current = window.setInterval(() => {
-        if (startTimeRef.current > 0) {
-          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-          setElapsedSec(elapsed);
-        }
-        
-        // Smooth progress animation
-        setDisplayPercent(prev => {
-          if (progress?.status === 'complete' || progress?.status === 'finishing') {
-            return Math.min(100, prev + 5);
-          }
-          if (progress?.status === 'transcribing') {
-            // Slowly increase during transcription, cap at 85%
-            return Math.min(85, prev + 0.3);
-          }
-          // Initial stages
-          const target = progress?.percentage || 0;
-          if (prev < target) {
-            return Math.min(target, prev + 2);
-          }
-          return prev;
-        });
-      }, 100);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      // Brief delay before hiding
-      const hideTimer = setTimeout(() => {
-        setProgress(null);
-        setDisplayPercent(0);
-        setElapsedSec(0);
-        startTimeRef.current = 0;
-      }, 500);
-      return () => clearTimeout(hideTimer);
+    if (isTranscribing && !startTime) {
+      setStartTime(Date.now());
+    } else if (!isTranscribing) {
+      setProgress(null);
+      setStartTime(null);
     }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [isTranscribing, progress?.status, progress?.percentage]);
+  }, [isTranscribing, startTime]);
 
   if (!isTranscribing) {
     return null;
   }
 
-  const formatDuration = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatDurationMs = (ms: number): string => {
-    return formatDuration(Math.floor(ms / 1000));
-  };
-
-  const statusText: Record<string, string> = {
+  const statusLabels: Record<string, string> = {
     loading: 'Starting...',
-    converting: 'Converting media...',
+    converting: 'Converting...',
     loading_model: 'Loading model...',
-    loading_audio: 'Processing audio...',
+    loading_audio: 'Loading audio...',
+    preprocessing: 'Preprocessing...',
     transcribing: 'Transcribing...',
-    finishing: 'Finishing...',
+    generating_srt: 'Generating SRT...',
+    saving_file: 'Saving...',
     complete: 'Complete!',
   };
 
-  const displayStatus = progress ? (statusText[progress.status] || progress.status) : 'Processing...';
-  const totalDurationMs = progress?.total_ms || 0;
-  const finalPercent = Math.round(displayPercent);
+  const percentage = progress?.percentage ?? 0;
+  const status = progress?.status
+    ? statusLabels[progress.status] || progress.status
+    : 'Processing...';
+  const processedMs = progress?.processed_ms ?? 0;
+  const totalMs = progress?.total_ms ?? 0;
+
+  // Calculate estimated time remaining
+  let etaDisplay = '';
+  if (startTime && percentage > 10) {
+    const elapsed = Date.now() - startTime;
+    const estimatedTotal = elapsed / (percentage / 100);
+    const remaining = Math.max(0, estimatedTotal - elapsed);
+    etaDisplay = formatHumanDuration(remaining);
+  }
 
   return (
     <div className="transcribe-progress">
       <div className="progress-info">
-        <span className="progress-status">{displayStatus}</span>
-        <span className="progress-stats">
-          {totalDurationMs > 0 && (
-            <span className="progress-duration">
-              {formatDuration(elapsedSec)} elapsed • {formatDurationMs(totalDurationMs)} audio
-            </span>
-          )}
-          <span className="progress-percent">{finalPercent}%</span>
+        <span className="progress-status">{status}</span>
+        <span className="progress-percent">
+          <AnimatedNumber value={percentage} />%
         </span>
       </div>
-      <div className="progress-track">
-        <div 
-          className="progress-fill"
-          style={{ width: `${finalPercent}%` }}
-        />
+      <div className="progress-bar-row">
+        <div className="progress-bar-container">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        {totalMs > 0 && (
+          <div className="progress-time-info">
+            <span className="time-processed">
+              {formatHumanDuration(processedMs)}
+            </span>
+            <span className="time-separator">/</span>
+            <span className="time-total">{formatHumanDuration(totalMs)}</span>
+            {etaDisplay && (
+              <span className="time-eta">• ~{etaDisplay} left</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
