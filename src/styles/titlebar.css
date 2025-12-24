@@ -1,4 +1,4 @@
-#titlebar {
+.titlebar {
   height: 28px; /* Compact like VS Code */
   background: var(--bg-color); /* Seamless blend */
   user-select: none;
@@ -23,7 +23,7 @@
   height: 100%;
 }
 
-.titlebar-btn {
+.titlebar-button {
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -32,23 +32,23 @@
   border: none;
   background: transparent;
   color: #888;
-  cursor: default;
+  cursor: pointer;
   transition: all 0.2s;
 }
 
-.titlebar-btn:hover {
+.titlebar-button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
-.titlebar-btn#titlebar-close:hover {
+.titlebar-button.close:hover {
   background: #E81123; /* Windows Red */
   color: #fff;
 }
 
-.titlebar-btn svg {
-  width: 10px; /* Refined, smaller icons */
-  height: 10px;
+.titlebar-icon {
+  font-size: 16px;
+  line-height: 1;
 }
 
 /* Add a subtle border to the whole app since we lost the window shadow/border */
@@ -59,6 +59,6 @@ body {
   overflow: hidden; /* Clip content to rounded corners */
 }
 /* Ensure the titlebar respects the rounding */
-#titlebar {
+.titlebar {
   border-radius: 8px 8px 0 0;
 }

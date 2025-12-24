@@ -15,15 +15,16 @@
     "windows": [
       {
         "title": "Whisper+",
-        "width": 450,
-        "height": 700,
-        "minWidth": 400,
-        "minHeight": 600,
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 700,
         "resizable": true,
         "theme": "Dark",
         "backgroundColor": "#161616",
         "visible": false,
-        "decorations": false
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {

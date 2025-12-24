@@ -51,10 +51,6 @@ export class ShortcutManager {
         } else {
           statusEl.textContent = 'Error: ' + e;
           statusEl.style.color = '#ff4444';
-          // Show toast for user visibility in release build
-          import('../ui/toast').then((m) =>
-            m.showToast('Shortcut Error: ' + e)
-          );
         }
       }
     } finally {

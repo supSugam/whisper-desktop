@@ -40,6 +40,8 @@ export interface HistoryItem {
   text: string;
   duration: number; // Audio duration in ms
   error?: boolean;
-  backend?: string; // 'Cloud', 'CPU', 'GPU'
+  backend?: string; // 'Cloud', 'CPU', 'GPU', 'SRT'
   processingTime?: number; // Transcription time in ms
+  isSrt?: boolean; // True if this is an SRT file entry
+  srtPath?: string; // Path to the SRT file
 }

@@ -1,118 +1,566 @@
+/* Global Layout Reset */
 #app {
   width: 100%;
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   margin: 0;
-  position: relative;
-}
-
-.main-layout {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  padding: 24px;
-  box-sizing: border-box;
   overflow: hidden;
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  padding: 12px; 
+  box-sizing: border-box;
 }
 
-.app-container {
+/* Main Grid Layout */
+.main-layout-grid {
+    display: flex; 
+    flex-direction: row;
     width: 100%;
-    max-width: min(100%, 650px);
-    margin: 0 auto;
+    height: 100%; 
+    overflow: hidden;
+    gap: 12px;
+}
+
+/* ==========================================================================
+   SIDEBAR (Left)
+   ========================================================================== */
+.sidebar {
+    width: 480px;
+    min-width: 400px;
+    max-width: 600px;
+    height: 100%;
+    
+    /* Glassmorphism */
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    
     display: flex;
     flex-direction: column;
-    flex: 1; /* Allow container to fill empty space */
-    min-height: 0; /* Important for scrollable children in flex column */
+    z-index: 20;
+    box-shadow: var(--shadow-card);
 }
 
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 12px; 
-  flex: 0 0 auto;
+.sidebar-header {
+    flex: 0 0 auto;
+    padding: 20px 24px;
+    background: transparent;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
-.action-area {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-  margin-top: 24px; /* V16 Polish */
+.sidebar-content {
+    flex: 1;
+    overflow-y: hidden; 
+    display: flex;
+    flex-direction: column;
 }
 
-/* Modals */
+/* ==========================================================================
+   MAIN CONTENT (Right)
+   ========================================================================== */
+.main-content {
+    flex: 1;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    height: 100%;
+    overflow-y: auto; /* Enable scroll for sticky header to work */
+    box-shadow: var(--shadow-card);
+}
+
+/* Header Area - Sticky */
+.main-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.branding { display: flex; align-items: center; gap: 12px; }
+.app-title { 
+    font-size: 1.35rem; 
+    font-weight: 700; 
+    color: var(--text-primary); 
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.settings-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-smooth);
+}
+.settings-btn:hover { 
+    background: rgba(255,255,255,0.1); 
+    color: var(--text-primary);
+    border-color: rgba(255,255,255,0.15);
+}
+
+/* ==========================================================================
+   DASHBOARD - Modern Grid
+   ========================================================================== */
+.dashboard {
+    flex: 0 0 auto; /* Don't flex, use natural height */
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Dashboard Card Component - Glassmorphism */
+.dashboard-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle gradient overlay on hover */
+.dashboard-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+.dashboard-card:hover {
+    border-color: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px -12px rgba(0,0,0,0.5);
+}
+
+.dashboard-card:hover::before {
+    opacity: 0.15;
+}
+
+.dashboard-card.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Card disabled state (e.g., cloud mode) */
+.dashboard-card.card-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    filter: grayscale(0.3);
+}
+.dashboard-card.card-disabled:hover {
+    transform: none;
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
+}
+.dashboard-card.card-disabled::before {
+    display: none;
+}
+
+/* Panel disabled state */
+.panel-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Card Header */
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.card-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--accent-color) 0%, #6366f1 100%);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px -4px var(--accent-glow);
+}
+.card-icon svg { width: 20px; height: 20px; }
+
+.card-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.card-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.card-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Record Card - Premium Mic Button */
+.record-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 0;
+    min-height: 140px;
+}
+
+/* File Drop - Modern Style */
+.dashboard-card .file-drop-area {
+    width: 100%;
+    height: 100%;
+    min-height: 120px;
+    border-radius: var(--radius-sm);
+    background: rgba(0,0,0,0.2);
+    border: 2px dashed rgba(255,255,255,0.1);
+}
+
+.dashboard-card .file-drop-area:hover {
+    background: rgba(0,0,0,0.3);
+    border-color: var(--accent-color);
+    box-shadow: inset 0 0 30px -10px var(--accent-glow);
+}
+
+/* ==========================================================================
+   AUDIO INPUT - Combined Record & Import
+   ========================================================================== */
+.audio-input-container {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+}
+
+.audio-input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 20px;
+}
+
+.record-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.import-section {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-tertiary);
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.record-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.record-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.audio-input-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+    position: relative;
+}
+
+.audio-input-divider::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    bottom: 20px;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.1), transparent);
+}
+
+.audio-input-divider span {
+    background: var(--surface-color);
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+    z-index: 1;
+}
+
+.import-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.import-section .file-drop-area,
+.import-section .file-preview {
+    flex: 1;
+    min-height: 120px;
+}
+
+/* Transcribe Progress Bar */
+.transcribe-progress {
+    width: 100%;
+    padding: 12px 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress-status {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.progress-stats {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-duration {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-tertiary);
+}
+
+.progress-percent {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-color) 0%, #6366f1 50%, var(--accent-color) 100%);
+    background-size: 200% 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    animation: progressShimmer 2s linear infinite;
+}
+
+/* Legacy SRT Progress (can be removed later) */
+.srt-progress-container {
+    width: 100%;
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.2);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.srt-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.srt-progress-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.srt-progress-percent {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.srt-progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.srt-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-color) 0%, #6366f1 50%, var(--accent-color) 100%);
+    background-size: 200% 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    animation: progressShimmer 2s linear infinite;
+}
+
+.srt-progress-fill.indeterminate {
+    width: 30%;
+    animation: progressIndeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes progressShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes progressIndeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+.srt-progress-duration {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-tertiary);
+}
+
+
+.duration-separator {
+    opacity: 0.5;
+}
+
+/* Responsive */
+@media (max-width: 1000px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+    .dashboard-card.full-width {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 850px) {
+    .main-layout-grid {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        max-width: none;
+        height: 350px;
+    }
+}
+
+/* ==========================================================================
+   MODALS
+   ========================================================================== */
 .overlay {
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.85);
   backdrop-filter: blur(8px);
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s ease;
 }
 .overlay.open { opacity: 1; pointer-events: auto; }
 
 .modal-card {
-    background: #1c1c1c;
-    width: 100%;
-    /* height: 100%; removed to allow auto-sizing */
-    max-width: min(95%, 650px);
-    max-height: 95vh;
-    border-radius: 8px; /* V18 Hardened */
+    background: linear-gradient(135deg, #1a1a24 0%, #151520 100%);
+    width: 90%;
+    max-width: 680px;
+    max-height: 85vh;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255,255,255,0.1);
+    
     display: flex;
     flex-direction: column;
-    position: relative;
-    box-shadow: 0 24px 48px rgba(0,0,0,0.5);
-    font-size: 15px;
-    padding: 24px; /* Global Padding */
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+    overflow: hidden;
 }
 
 .modal-header {
-    /* Removed padding to use parent padding */
-    padding-bottom: 12px;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #333;
-    background: #1c1c1c;
-    z-index: 10;
 }
 
 .modal-body {
-    /* Removed padding */
-    padding-top: 24px;
-    overflow-y: auto;
     flex: 1;
-    /* Custom scrollbar to prevent overlapping content if needed */
-    padding-right: 4px; /* Tiny buffer for scrollbar */
+    overflow-y: auto;
+    padding: 24px;
 }
 
 .modal-footer {
-    padding: 16px 0 0 0;
-    margin-top: auto;
-    border-top: 1px solid #333;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255,255,255,0.06);
     display: flex;
-    justify-content: flex-start; /* Reset button on left or right? Standard is usually right for primary, left for reset. Left is fine. */
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-    .main-layout { padding: 24px; }
-    /* Mobile: Keep it floating (95%) but maybe looser radius if needed */
-    .modal-card { max-width: 95%; max-height: 95%; } 
-    .action-area { margin-bottom: 20px; }
-}
-
-@media (max-height: 600px) {
-    .action-area { margin-bottom: 10px; }
-    .modal-card { max-height: 95%; }
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
 }

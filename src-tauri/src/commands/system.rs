@@ -9,6 +9,7 @@ pub async fn open_link(url: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn paste_text() -> Result<(), String> {
+
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     enigo.key(Key::Control, Direction::Press).map_err(|e| e.to_string())?;
     enigo.key(Key::Unicode('v'), Direction::Click).map_err(|e| e.to_string())?;
@@ -106,4 +107,31 @@ pub fn send_notification(title: String, body: String) -> Result<(), String> {
     }
     
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_linux_distro() -> String {
+    // Try to read /etc/os-release
+    if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
+        let lower = content.to_lowercase();
+        
+        if lower.contains("ubuntu") || lower.contains("debian") {
+            return "ubuntu".to_string();
+        } else if lower.contains("fedora") || lower.contains("rhel") || lower.contains("centos") {
+            return "fedora".to_string();
+        } else if lower.contains("arch") || lower.contains("manjaro") {
+            return "arch".to_string();
+        }
+    }
+    
+    // Fallback: check for package managers
+    if std::path::Path::new("/usr/bin/apt").exists() {
+        return "ubuntu".to_string();
+    } else if std::path::Path::new("/usr/bin/dnf").exists() || std::path::Path::new("/usr/bin/yum").exists() {
+        return "fedora".to_string();
+    } else if std::path::Path::new("/usr/bin/pacman").exists() {
+        return "arch".to_string();
+    }
+    
+    "unknown".to_string()
 }

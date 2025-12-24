@@ -102,7 +102,8 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .plugin(tauri_plugin_clipboard_manager::init());
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init());
 
     #[cfg(not(debug_assertions))]
     let builder = builder.plugin(
@@ -115,6 +116,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(AudioState::new())
+        .manage(commands::manager::DownloadState::new())
         .invoke_handler(tauri::generate_handler![
             commands::audio::start_recording,
             commands::audio::stop_recording,
@@ -123,6 +125,7 @@ pub fn run() {
             commands::system::paste_text,
             commands::system::get_session_type,
             commands::system::get_system_stats,
+            commands::system::get_linux_distro,
             commands::system::send_notification,
             commands::sounds::play_start_sound,
             commands::sounds::play_end_sound,
@@ -130,6 +133,8 @@ pub fn run() {
             commands::manager::check_model_exists,
             commands::manager::download_model,
             commands::manager::delete_model,
+            commands::manager::cancel_download,
+            commands::srt::generate_srt,
             was_autostarted
         ])
         .run(tauri::generate_context!())
