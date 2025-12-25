@@ -1,4 +1,4 @@
-use whisper_rs::{WhisperContext, FullParams, SamplingStrategy, WhisperContextParameters};
+use whisper_rs::{WhisperContext, FullParams, SamplingStrategy, WhisperContextParameters, DtwParameters, DtwMode, DtwModelPreset};
 use tauri::{AppHandle, Runtime, Manager, Emitter};
 use hound;
 use std::fs::File;
@@ -98,133 +98,6 @@ fn has_speech(samples: &[f32], threshold: f32) -> bool {
     energy > threshold
 }
 
-/// Merge words into natural subtitle blocks
-/// Uses Whisper's natural segmentation, only adjusting for very short/long segments
-fn merge_tokens_to_subtitles(tokens: Vec<(i64, i64, String)>) -> Vec<SubtitleEntry> {
-    let mut subtitles: Vec<SubtitleEntry> = Vec::new();
-    
-    if tokens.is_empty() {
-        return subtitles;
-    }
-
-    // Constraints
-    let min_duration_ms: i64 = 1000;  // Minimum 1 second for readability
-    let max_duration_ms: i64 = 7000;  // Maximum 7 seconds
-    let max_chars: usize = 84;         // ~2 lines of 42 chars
-
-    let mut pending: Option<SubtitleEntry> = None;
-
-    for (start, end, text) in tokens {
-        let text = text.trim().to_string();
-        if text.is_empty() {
-            continue;
-        }
-
-        let duration = end - start;
-
-        // If we have a pending short subtitle, try to merge
-        if let Some(ref mut p) = pending {
-            let merged_duration = end - p.start_ms;
-            let merged_text = format!("{} {}", p.text, text);
-            
-            // Merge if: pending is short AND merged result is reasonable
-            if p.end_ms - p.start_ms < min_duration_ms 
-                && merged_duration <= max_duration_ms 
-                && merged_text.len() <= max_chars 
-            {
-                p.text = merged_text;
-                p.end_ms = end;
-                continue;
-            } else {
-                // Can't merge, push pending and start fresh
-                subtitles.push(pending.take().unwrap());
-            }
-        }
-
-        // Handle current segment
-        if duration < min_duration_ms && text.len() < 30 {
-            // Too short - hold for potential merge
-            pending = Some(SubtitleEntry {
-                start_ms: start,
-                end_ms: end,
-                text,
-            });
-        } else if duration > max_duration_ms || text.len() > max_chars {
-            // Too long - split at sentence boundaries
-            let sentences = split_at_sentences(&text);
-            let segment_duration = duration / sentences.len() as i64;
-            
-            for (i, sentence) in sentences.iter().enumerate() {
-                if !sentence.trim().is_empty() {
-                    subtitles.push(SubtitleEntry {
-                        start_ms: start + (i as i64 * segment_duration),
-                        end_ms: start + ((i + 1) as i64 * segment_duration),
-                        text: sentence.trim().to_string(),
-                    });
-                }
-            }
-        } else {
-            // Good length - use as-is
-            subtitles.push(SubtitleEntry {
-                start_ms: start,
-                end_ms: end,
-                text,
-            });
-        }
-    }
-
-    // Don't forget pending
-    if let Some(p) = pending {
-        subtitles.push(p);
-    }
-
-    subtitles
-}
-
-/// Split text at sentence boundaries for long segments
-fn split_at_sentences(text: &str) -> Vec<String> {
-    let mut sentences: Vec<String> = Vec::new();
-    let mut current = String::new();
-    
-    for ch in text.chars() {
-        current.push(ch);
-        if ch == '.' || ch == '!' || ch == '?' {
-            // Check for abbreviations (single letter before period)
-            let trimmed = current.trim();
-            if trimmed.len() > 2 {
-                sentences.push(current.trim().to_string());
-                current = String::new();
-            }
-        }
-    }
-    
-    // Remaining text
-    if !current.trim().is_empty() {
-        if sentences.is_empty() {
-            // No sentence breaks found - split by comma or just return as-is
-            if current.contains(',') {
-                for part in current.split(',') {
-                    let p = part.trim();
-                    if !p.is_empty() {
-                        sentences.push(format!("{},", p).trim_end_matches(',').to_string() + if part.ends_with(',') { "," } else { "" });
-                    }
-                }
-                // Clean up - just split by comma
-                sentences = current.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
-            } else {
-                sentences.push(current.trim().to_string());
-            }
-        } else {
-            sentences.push(current.trim().to_string());
-        }
-    }
-    
-    if sentences.is_empty() {
-        sentences.push(text.to_string());
-    }
-    
-    sentences
-}
 
 /// Format subtitles with line breaks for readability (max 42 chars per line)
 fn format_subtitle_text(text: &str) -> String {
@@ -284,6 +157,7 @@ pub async fn generate_srt<R: Runtime>(
     output_path: String,
     translate: bool,
     use_gpu: bool,
+    duplicate_mode: String, // "overwrite" or "rename"
 ) -> Result<String, String> {
     // Emit starting progress
     let _ = app.emit("srt-progress", SrtProgress {
@@ -300,7 +174,32 @@ pub async fn generate_srt<R: Runtime>(
         return Err("Model not found. Please download it first.".to_string());
     }
 
+    // Map model name to DTW preset for precise timestamps
+    let dtw_preset = match model.to_lowercase().as_str() {
+        "tiny.en" => Some(DtwModelPreset::TinyEn),
+        "tiny" => Some(DtwModelPreset::Tiny),
+        "base.en" => Some(DtwModelPreset::BaseEn),
+        "base" => Some(DtwModelPreset::Base),
+        "small.en" => Some(DtwModelPreset::SmallEn),
+        "small" => Some(DtwModelPreset::Small),
+        "medium.en" => Some(DtwModelPreset::MediumEn),
+        "medium" => Some(DtwModelPreset::Medium),
+        "large" | "large-v1" => Some(DtwModelPreset::LargeV1),
+        "large-v2" => Some(DtwModelPreset::LargeV2),
+        "large-v3" => Some(DtwModelPreset::LargeV3),
+        _ => None, // Unknown model, skip DTW
+    };
+    
     let mut params = WhisperContextParameters::default();
+    
+    // Enable DTW for precise millisecond timestamps if model is supported
+    if let Some(preset) = dtw_preset {
+        println!("[SRT] Enabling DTW with {:?} preset for precise timestamps", preset);
+        params.dtw_parameters(DtwParameters {
+            mode: DtwMode::ModelPreset { model_preset: preset },
+            dtw_mem_size: 1024 * 1024 * 128, // 128MB for DTW computation
+        });
+    }
     
     #[cfg(any(feature = "cuda", feature = "vulkan", feature = "rocm"))]
     {
@@ -428,7 +327,7 @@ pub async fn generate_srt<R: Runtime>(
     // Reset cancellation flag
     crate::SRT_CANCELLED.store(false, std::sync::atomic::Ordering::SeqCst);
 
-    // Configure Whisper params for natural sentence-level timestamps
+    // Configure Whisper params for precise timestamps
     let mut whisper_params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
     whisper_params.set_language(Some("auto"));
     whisper_params.set_translate(translate);
@@ -436,8 +335,26 @@ pub async fn generate_srt<R: Runtime>(
     whisper_params.set_print_progress(false);
     whisper_params.set_print_realtime(false);
     whisper_params.set_print_timestamps(false);
-    whisper_params.set_token_timestamps(false); // Use segment-level timestamps for natural sentences
-    whisper_params.set_no_speech_thold(0.6);
+    
+    // ENABLE token timestamps for precise millisecond timing
+    whisper_params.set_token_timestamps(true);
+    // Set maximum segment length for better granularity (in tokens)
+    whisper_params.set_max_len(0); // 0 = no limit, let natural breaks happen
+    
+    // CRITICAL: Suppress non-speech tokens to prevent [Music], [BLANK_AUDIO] hallucinations
+    whisper_params.set_suppress_blank(true);
+    whisper_params.set_suppress_non_speech_tokens(true);
+    
+    // Lower thresholds for better low voice capture
+    // no_speech_thold: lower = more sensitive to quiet speech
+    // entropy_thold: higher = allow more uncertain segments (catches quiet voices)
+    if translate {
+        whisper_params.set_no_speech_thold(0.1); // Very lenient for translation
+        whisper_params.set_logprob_thold(-2.0);
+    } else {
+        whisper_params.set_no_speech_thold(0.3); // More lenient than before (was 0.6)
+        whisper_params.set_logprob_thold(-1.5);
+    }
     // Do NOT set max_len - let Whisper create natural sentence-length segments
 
     // Emit transcribing status
@@ -456,12 +373,11 @@ pub async fn generate_srt<R: Runtime>(
         return Err("Cancelled by user".to_string());
     }
 
-    // Start a background thread to emit progress updates during transcription
+    // Simple time-based progress during transcription (progress callback was causing crashes)
     let app_clone = app.clone();
     let total_ms = total_duration_ms;
     let audio_duration_secs = total_duration_ms as f64 / 1000.0;
-    // Estimate: ~0.3x realtime for GPU, ~1x for CPU (conservative)
-    let estimated_process_time = (audio_duration_secs * 0.5).max(5.0); // At least 5 seconds
+    let estimated_process_time = (audio_duration_secs * 0.5).max(5.0);
     
     let progress_running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
     let progress_running_clone = progress_running.clone();
@@ -477,7 +393,6 @@ pub async fn generate_srt<R: Runtime>(
             }
             
             let elapsed = start.elapsed().as_secs_f64();
-            // Progress from 20% to 80% based on estimated time
             let progress = (elapsed / estimated_process_time).min(1.0);
             let percentage = 20 + (progress * 60.0) as u32;
             let estimated_processed = (progress * total_ms as f64) as u64;
@@ -485,11 +400,11 @@ pub async fn generate_srt<R: Runtime>(
             let _ = app_clone.emit("srt-progress", SrtProgress {
                 percentage,
                 processed_ms: estimated_processed,
-                total_ms: total_ms,
+                total_ms,
                 status: "transcribing".to_string(),
             });
             
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(200)); // Update every 200ms
         }
     });
 
@@ -506,7 +421,7 @@ pub async fn generate_srt<R: Runtime>(
         percentage: 85,
         processed_ms: total_duration_ms,
         total_ms: total_duration_ms,
-        status: "transcribing".to_string(),
+        status: "processing_segments".to_string(),
     });
 
     // Extract segments (natural sentences from Whisper)
@@ -524,16 +439,37 @@ pub async fn generate_srt<R: Runtime>(
         let start_ms = seg_start as i64 * 10;
         let end_ms = seg_end as i64 * 10;
         
-        // Filter hallucinations
+        // Filter hallucinations - be more careful to not filter legitimate text
         let lower = seg_text.to_lowercase();
+        let trimmed = seg_text.trim();
+        
+        // Skip common hallucination patterns
         if lower.contains("subscribe") || lower.contains("amara.org") || 
-           lower.contains("subtitles by") || lower.contains("[") ||
-           lower.contains("(speaking") || lower.contains("(music") {
+           lower.contains("subtitles by") || lower.contains("transcribed by") ||
+           lower.contains("(speaking") {
             continue;
         }
+        
+        // Skip pure annotation segments like "[Music]", "[Applause]", etc.
+        // But keep segments that have actual text alongside annotations
+        if trimmed.starts_with('[') && trimmed.ends_with(']') && !trimmed.contains(' ') {
+            // Pure annotation like "[Music]" or "[Applause]"
+            continue;
+        }
+        
+        // Remove inline annotations but keep the text
+        let cleaned_text = trimmed
+            .replace("[Music]", "")
+            .replace("[music]", "")
+            .replace("[Applause]", "")
+            .replace("[applause]", "")
+            .replace("[Laughter]", "")
+            .replace("[laughter]", "")
+            .trim()
+            .to_string();
 
-        if !seg_text.trim().is_empty() {
-            all_tokens.push((start_ms, end_ms, seg_text.trim().to_string()));
+        if !cleaned_text.is_empty() {
+            all_tokens.push((start_ms, end_ms, cleaned_text));
         }
     }
 
@@ -566,12 +502,36 @@ pub async fn generate_srt<R: Runtime>(
     });
 
     // Save to file
-    let output_path_buf = PathBuf::from(&output_path);
-    if let Some(parent) = output_path_buf.parent() {
+    let mut final_output_path = PathBuf::from(&output_path);
+    
+    // Handle duplicate files
+    if duplicate_mode == "rename" && final_output_path.exists() {
+        // Find a unique filename by adding _1, _2, etc.
+        let stem = final_output_path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("output");
+        let parent = final_output_path.parent().unwrap_or(Path::new("."));
+        
+        let mut counter = 1;
+        loop {
+            let new_name = format!("{}_{}.srt", stem, counter);
+            let new_path = parent.join(&new_name);
+            if !new_path.exists() {
+                final_output_path = new_path;
+                break;
+            }
+            counter += 1;
+            if counter > 1000 {
+                return Err("Too many duplicate files".to_string());
+            }
+        }
+    }
+    
+    if let Some(parent) = final_output_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    let mut file = File::create(&output_path).map_err(|e| format!("Failed to create file: {}", e))?;
+    let mut file = File::create(&final_output_path).map_err(|e| format!("Failed to create file: {}", e))?;
     file.write_all(srt_content.as_bytes()).map_err(|e| format!("Failed to write file: {}", e))?;
 
     // Emit complete
@@ -587,5 +547,5 @@ pub async fn generate_srt<R: Runtime>(
         let _ = std::fs::remove_file(&temp);
     }
 
-    Ok(output_path)
+    Ok(final_output_path.to_string_lossy().to_string())
 }

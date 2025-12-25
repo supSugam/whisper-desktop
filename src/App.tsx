@@ -5,45 +5,44 @@ import { MainLayout } from './components/MainLayout';
 import { Toast } from './components/Toast';
 import { useConfigStore } from './stores/useConfigStore';
 import { useHistoryStore } from './stores/useHistoryStore';
-import { useRecording } from './hooks/useRecording';
 import { useShortcuts } from './hooks/useShortcuts';
 import { useCLIEvents } from './hooks/useCLIEvents';
+import { toggleRecord } from './lib/recordingController';
 
 const App: React.FC = () => {
-  const initialize = useConfigStore(state => state.initialize);
-  const initializeHistory = useHistoryStore(state => state.initialize);
-  const { toggleRecord, startRecord, stopRecord } = useRecording();
-  
+  const initialize = useConfigStore((state) => state.initialize);
+  const initializeHistory = useHistoryStore((state) => state.initialize);
+
   useEffect(() => {
     const init = async () => {
       // Initialize stores
       await initialize();
       await initializeHistory();
-      
+
       // Show window after initialization
-      await getCurrentWindow().show();
-      
+      try {
+        await getCurrentWindow().show();
+      } catch (e) {
+        console.warn('Window show failed:', e);
+      }
+
       // Periodic history time updates
       const interval = setInterval(() => {
         useHistoryStore.getState().refresh();
       }, 60000);
-      
+
       return () => clearInterval(interval);
     };
-    
+
     init();
   }, [initialize, initializeHistory]);
-  
-  // Set up shortcuts
-  useShortcuts({
-    onToggle: toggleRecord,
-    onPress: startRecord,
-    onRelease: stopRecord,
-  });
-  
+
+  // Set up shortcuts with stable handlers
+  useShortcuts();
+
   // Set up CLI events
   useCLIEvents({ onToggle: toggleRecord });
-  
+
   return (
     <>
       <TitleBar />

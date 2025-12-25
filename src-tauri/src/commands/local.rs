@@ -194,48 +194,84 @@ async fn transcribe_wav<R: Runtime>(
     wparams.set_print_progress(false);
     wparams.set_print_realtime(false);
     wparams.set_print_timestamps(false);
-    wparams.set_no_speech_thold(0.6);
-    wparams.set_logprob_thold(-1.0);
+    
+    // CRITICAL: Suppress non-speech tokens to prevent [Music], [BLANK_AUDIO] hallucinations
+    // This forces Whisper to actually transcribe/translate instead of labeling as music
+    wparams.set_suppress_blank(true);
+    wparams.set_suppress_non_speech_tokens(true);
+    
+    // Lower the no_speech threshold for translation - foreign languages can have different audio characteristics
+    // that might be incorrectly classified as "no speech"
+    if translate {
+        wparams.set_no_speech_thold(0.2); // More lenient for translation
+        wparams.set_logprob_thold(-2.0);  // More lenient log probability threshold
+    } else {
+        wparams.set_no_speech_thold(0.6);
+        wparams.set_logprob_thold(-1.0);
+        // Only use prompt when NOT translating
+        let prompt = "Hello, welcome to the transcription. This is a clear English text.";
+        wparams.set_initial_prompt(prompt);
+    }
 
-    let prompt = "Hello, welcome to the transcription. This is a clear English text.";
-    wparams.set_initial_prompt(prompt);
-
+    // Run transcription (progress callback removed - was causing crashes)
     state.full(wparams, &samples).map_err(|e| format!("Failed to run model: {}", e))?;
 
     emit_progress(app, 90, total_duration_ms, total_duration_ms, "finishing");
 
     let num_segments = state.full_n_segments().map_err(|e| format!("Failed to get segments: {}", e))?;
+    println!("[DEBUG] Number of segments: {}", num_segments);
+    
     let mut text = String::new();
     
     for i in 0..num_segments {
         let segment = state.full_get_segment_text(i).map_err(|e| format!("Failed to get segment text: {}", e))?;
+        println!("[DEBUG] Segment {}: {:?}", i, segment);
         text.push_str(&segment);
         text.push(' ');
     }
 
-    let trimmed = text.trim().to_string();
+    println!("[DEBUG] Raw text before filtering: {:?}", text);
+    let mut trimmed = text.trim().to_string();
 
-    // Hallucination Filter
+    // Clean up annotations like [Music], [Applause], etc.
+    let annotations = ["[Music]", "[music]", "[Applause]", "[applause]", "[Laughter]", "[laughter]"];
+    for annotation in annotations {
+        trimmed = trimmed.replace(annotation, "").trim().to_string();
+    }
+
+    println!("[DEBUG] After annotation cleanup: {:?}", trimmed);
+
+    // Hallucination Filter - only for pure annotation segments
     let lower = trimmed.to_lowercase();
+    if trimmed.is_empty() {
+        println!("[DEBUG] Result is empty after cleanup");
+        return Ok("".to_string());
+    }
+    
+    // Only filter if ENTIRE result is just an annotation
     if (lower.starts_with('(') || lower.starts_with('[')) && (lower.ends_with(')') || lower.ends_with(']')) {
         if lower.contains("speaking") || lower.contains("foreign") || lower.contains("silence") || lower.contains("music") || lower.contains("appla") {
              return Ok("".to_string());
         }
     }
 
+    // Hallucination filter - only very specific patterns that are definitely not real transcriptions
+    // Be VERY careful here - we don't want to filter valid content
     let hallucinations = [
-        "Please subscribe", 
         "Subscribe to my channel",
         "Amara.org",
-        "Subtitles by",
-        "I'm sorry",
-        "bad translation",
+        "Subtitles by the",
+        "Transcribed by",
         "This is a clear English text",
-        "Hello, welcome to the transcription"
+        "Hello, welcome to the transcription",
+        "Thank you for watching",
     ];
 
+    // Only filter if the ENTIRE text is just the hallucination (not if it contains it)
+    let lower = trimmed.to_lowercase();
     for h in hallucinations {
-        if trimmed.contains(h) {
+        if lower == h.to_lowercase() {
+            println!("[DEBUG] Filtered as hallucination: {}", h);
             return Ok("".to_string());
         }
     }

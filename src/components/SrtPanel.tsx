@@ -7,15 +7,17 @@ interface SrtPanelProps {
 }
 
 export const SrtPanel: React.FC<SrtPanelProps> = ({ disabled = false }) => {
-  const { 
-    enabled, 
-    filenameMode, 
-    customFilename, 
+  const {
+    enabled,
+    filenameMode,
+    customFilename,
     outputPath,
+    duplicateHandling,
     setEnabled,
     setFilenameMode,
     setCustomFilename,
-    setOutputPath
+    setOutputPath,
+    setDuplicateHandling,
   } = useSrtConfigStore();
   
   const [defaultPath, setDefaultPath] = useState<string>('');
@@ -56,6 +58,36 @@ export const SrtPanel: React.FC<SrtPanelProps> = ({ disabled = false }) => {
             />
             <span className="slider"></span>
           </label>
+        </div>
+
+        {/* Duplicate Handling */}
+        <div className="srt-option-row">
+          <div className="option-info">
+            <span className="option-label">If File Exists</span>
+            <span className="option-hint">
+              How to handle duplicate filenames
+            </span>
+          </div>
+          <div className="filename-mode-toggle">
+            <button
+              className={`mode-btn ${
+                duplicateHandling === 'rename' ? 'active' : ''
+              }`}
+              onClick={() => setDuplicateHandling('rename')}
+              disabled={isDisabled || !enabled}
+            >
+              Rename
+            </button>
+            <button
+              className={`mode-btn ${
+                duplicateHandling === 'overwrite' ? 'active' : ''
+              }`}
+              onClick={() => setDuplicateHandling('overwrite')}
+              disabled={isDisabled || !enabled}
+            >
+              Overwrite
+            </button>
+          </div>
         </div>
 
         {/* Output Path */}

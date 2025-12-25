@@ -9,6 +9,7 @@ import { FileDropArea } from './FileDropArea';
 import { DashboardCard } from './DashboardCard';
 import { SrtPanel } from './SrtPanel';
 import { TranscribeProgress } from './TranscribeProgress';
+import { TranslateToggle } from './TranslateToggle';
 import { useConfigStore } from '../stores/useConfigStore';
 import { useRecordingStore } from '../stores/useRecordingStore';
 
@@ -80,6 +81,9 @@ export const MainLayout: React.FC = () => {
                 <FileDropArea />
               </div>
             </div>
+
+            {/* Translate Toggle - Only shows for local engine */}
+            <TranslateToggle />
 
             {/* Progress Bar - integrated at bottom */}
             <TranscribeProgress />

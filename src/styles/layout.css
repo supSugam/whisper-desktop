@@ -604,3 +604,39 @@
     align-items: center;
     gap: 12px;
 }
+
+/* Translate Toggle */
+.translate-toggle {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.translate-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.translate-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.translate-icon {
+    font-size: 16px;
+}
+
+.translate-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+

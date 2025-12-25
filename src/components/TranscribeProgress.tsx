@@ -61,19 +61,23 @@ const formatHumanDuration = (ms: number): string => {
 };
 
 export const TranscribeProgress: React.FC = () => {
-  const { isTranscribing } = useRecordingStore();
+  const { isTranscribing, isGeneratingSrt } = useRecordingStore();
   const [progress, setProgress] = useState<ProgressPayload | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
+
+  const isActive = isTranscribing || isGeneratingSrt;
 
   useEffect(() => {
     const unlisten1 = listen<ProgressPayload>(
       'transcribe-progress',
       (event) => {
+        console.log('[Progress] transcribe-progress:', event.payload);
         setProgress(event.payload);
       }
     );
 
     const unlisten2 = listen<ProgressPayload>('srt-progress', (event) => {
+      console.log('[Progress] srt-progress:', event.payload);
       setProgress(event.payload);
     });
 
@@ -85,15 +89,15 @@ export const TranscribeProgress: React.FC = () => {
 
   // Track start time for ETA calculation
   useEffect(() => {
-    if (isTranscribing && !startTime) {
+    if (isActive && !startTime) {
       setStartTime(Date.now());
-    } else if (!isTranscribing) {
+    } else if (!isActive) {
       setProgress(null);
       setStartTime(null);
     }
-  }, [isTranscribing, startTime]);
+  }, [isActive, startTime]);
 
-  if (!isTranscribing) {
+  if (!isActive) {
     return null;
   }
 

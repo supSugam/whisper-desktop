@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { documentDir, join } from '@tauri-apps/api/path';
+import { documentDir, join, dirname } from '@tauri-apps/api/path';
+import { recordingController } from '../lib/recordingController';
 import { useRecordingStore } from '../stores/useRecordingStore';
 import { useConfigStore } from '../stores/useConfigStore';
 import { useHistoryStore } from '../stores/useHistoryStore';
 import { useToastStore } from '../stores/useToastStore';
 import { useSrtConfigStore } from '../stores/useSrtConfigStore';
-import { audioController } from '../lib/audio';
 
 interface ProgressPayload {
   percentage: number;
@@ -17,386 +16,181 @@ interface ProgressPayload {
   status: string;
 }
 
+// Helper to build SRT output path based on config
+async function buildSrtOutputPath(
+  inputFilePath: string,
+  srtConfig: {
+    outputPath: 'default' | 'sameas';
+    filenameMode: 'same' | 'custom';
+    customFilename: string;
+  }
+): Promise<string> {
+  // Get the input filename without extension
+  const inputFilename =
+    inputFilePath
+      .split('/')
+      .pop()
+      ?.replace(/\.[^/.]+$/, '') || 'transcription';
+
+  // Determine output filename
+  const outputFilename =
+    srtConfig.filenameMode === 'custom' && srtConfig.customFilename
+      ? srtConfig.customFilename
+      : inputFilename;
+
+  // Determine output directory
+  let outputDir: string;
+  if (srtConfig.outputPath === 'sameas') {
+    // Save in same directory as input file
+    outputDir = await dirname(inputFilePath);
+    console.log('[SRT] Using same directory as input:', outputDir);
+  } else {
+    // Save in default WhisperOutputs directory
+    const docsDir = await documentDir();
+    outputDir = await join(docsDir, 'WhisperOutputs');
+    console.log('[SRT] Using default directory:', outputDir);
+  }
+
+  const outputPath = await join(outputDir, `${outputFilename}.srt`);
+  console.log('[SRT] Final output path:', outputPath);
+
+  return outputPath;
+}
+
 export const useRecording = () => {
-  const {
-    isRecording,
-    isTranscribing,
-    isCancelled,
-    startTime,
-    recordTimer,
-    setRecording,
-    setTranscribing,
-    setCancelled,
-    setStartTime,
-    setRecordTimer,
-  } = useRecordingStore();
-  
+  const store = useRecordingStore();
   const { config } = useConfigStore();
-  const { addItem } = useHistoryStore();
-  const showToast = useToastStore(state => state.show);
-  const srtConfig = useSrtConfigStore();
-  
-  // Progress state management
-  const progressRef = useRef<{ percentage: number; status: string }>({ percentage: 0, status: '' });
-  
-  // Listen for progress events
+  const showToast = useToastStore((state) => state.show);
+
+  // Progress tracking
   useEffect(() => {
-    const unlisten = listen<ProgressPayload>('transcribe-progress', (event) => {
-      progressRef.current = {
-        percentage: event.payload.percentage,
-        status: event.payload.status,
-      };
+    const unlisten = listen<ProgressPayload>('transcribe-progress', () => {
+      // Progress handled elsewhere
     });
-    return () => { unlisten.then(fn => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
-  
-  const startRecord = useCallback(async () => {
-    if (isRecording) return;
-    
-    if (isTranscribing) {
-      showToast('Wait for previous task to finish');
-      return;
-    }
-    
-    if (!config.token && config.transcriptionEngine !== 'local') {
-      alert('Please set your ChatGPT token in settings first.');
-      return;
-    }
-    
-    try {
-      await invoke('start_recording');
-      setRecording(true);
-      setStartTime(Date.now());
-      if (config.soundEnabled) audioController.playStart();
-      
-      // Start timer
-      const timer = setInterval(() => {
-        // Timer updates handled by component
-      }, 500);
-      setRecordTimer(timer);
-    } catch (e) {
-      console.error('Start Error', e);
-      showToast('Error starting recording');
-    }
-  }, [isRecording, isTranscribing, config, setRecording, setStartTime, setRecordTimer, showToast]);
-  
-  const stopRecord = useCallback(async () => {
-    if (!isRecording) return;
-    
-    setRecording(false);
-    setCancelled(false);
-    if (config.soundEnabled) audioController.playEnd();
-    if (recordTimer) clearInterval(recordTimer);
-    
-    setTranscribing(true);
-    
-    const duration = Date.now() - startTime;
-    
-    try {
-      const path = await invoke<string>('stop_recording');
-      
-      if (duration < 500) {
-        showToast('Too short, discarded');
-        setTranscribing(false);
+
+  // transcribeFile function for file imports
+  const transcribeFile = useCallback(
+    async (filePath: string) => {
+      if (store.isTranscribing || store.isRecording) {
+        showToast('Busy recording or processing');
         return;
       }
-      
+
+      // Get SRT config state
+      const srtConfig = useSrtConfigStore.getState();
+      const useSrt =
+        srtConfig.enabled && config.transcriptionEngine === 'local';
+
+      console.log('[transcribeFile] File path:', filePath);
+      console.log('[transcribeFile] SRT config:', {
+        enabled: srtConfig.enabled,
+        outputPath: srtConfig.outputPath,
+        filenameMode: srtConfig.filenameMode,
+        customFilename: srtConfig.customFilename,
+        duplicateHandling: srtConfig.duplicateHandling,
+      });
+      console.log('[transcribeFile] Using SRT:', useSrt);
+
+      useRecordingStore.setState({
+        isTranscribing: true,
+        isGeneratingSrt: useSrt,
+      });
+
       const id = Date.now();
-      
+      const tStart = Date.now();
+      const addItem = useHistoryStore.getState().addItem;
+
       try {
         let text = '';
-        const tStart = Date.now();
         let backendInfo = '';
-        
-        if (config.transcriptionEngine === 'local') {
+
+        // Check if SRT output is enabled (only works with local engine)
+        if (useSrt) {
+          console.log('[transcribeFile] Using SRT generation mode');
+          const useGpu = config.useLocalGPU || false;
+          backendInfo = useGpu ? 'SRT (GPU)' : 'SRT (CPU)';
+
+          // Build output path using ALL config options
+          const outputPath = await buildSrtOutputPath(filePath, srtConfig);
+
+          const result = await invoke<string>('generate_srt', {
+            audioPath: filePath,
+            model: config.localModel || 'Tiny',
+            outputPath,
+            translate: config.localTranslate || false,
+            useGpu,
+            duplicateMode: srtConfig.duplicateHandling || 'rename',
+          });
+
+          console.log('[transcribeFile] SRT generated:', result);
+          text = `SRT saved: ${result.split('/').pop()}`;
+          const processingTime = Date.now() - tStart;
+
+          // Add to history as SRT
+          await addItem({
+            timestamp: id,
+            text: result.split('/').pop() || 'transcription.srt',
+            duration: 0,
+            error: false,
+            backend: backendInfo,
+            processingTime,
+            isSrt: true,
+            srtPath: result,
+          });
+
+          showToast('SRT file generated!');
+        } else if (config.transcriptionEngine === 'local') {
+          // Normal local transcription
           const useGpu = config.useLocalGPU || false;
           backendInfo = useGpu ? 'Local (GPU)' : 'Local (CPU)';
-          
+
           text = await invoke<string>('transcribe_local', {
-            path,
+            path: filePath,
             model: config.localModel || 'Tiny',
             useGpu,
             translate: config.localTranslate || false,
           });
-        } else {
-          if (!config.token) throw new Error('Please set your ChatGPT token in settings.');
-          
-          backendInfo = 'Cloud (ChatGPT)';
-          text = await invoke<string>('transcribe', {
-            path,
-            token: config.token,
-            userAgent: config.userAgent,
-          });
-        }
-        
-        const processingTime = Date.now() - tStart;
-        
-        // Check if cancelled
-        if (isCancelled) {
-          setCancelled(false);
-          return;
-        }
-        
-        if (!text || text.trim().length === 0) {
+
+          const processingTime = Date.now() - tStart;
+
           await addItem({
             timestamp: id,
-            text: '',
-            duration,
+            text: text || '',
+            duration: 0,
             error: false,
             backend: backendInfo,
             processingTime,
           });
         } else {
-          await addItem({
-            timestamp: id,
-            text,
-            duration,
-            backend: backendInfo,
-            processingTime,
-          });
-          
-          // Auto Copy
-          if (config.autoCopy) {
-            await writeText(text);
-            
-            // Auto-paste if enabled
-            if (config.autoPaste) {
-              // Wait for clipboard to be ready (X11 needs more time)
-              await new Promise(resolve => setTimeout(resolve, 300));
-              
-              // Attempt paste with retry
-              let pasted = false;
-              for (let i = 0; i < 3 && !pasted; i++) {
-                try {
-                  await invoke('paste_text');
-                  pasted = true;
-                  showToast('Pasted');
-                } catch (e) {
-                  console.log(`Paste attempt ${i + 1} failed:`, e);
-                  if (i < 2) await new Promise(resolve => setTimeout(resolve, 200));
-                }
-              }
-              
-              if (!pasted) {
-                showToast('Copied (paste failed)');
-                console.error('Auto-paste failed after 3 attempts');
-              }
-            }
-            
-            // Send notification if enabled
-            if (config.notificationEnabled) {
-              try {
-                await invoke('send_notification', {
-                  title: 'Whisper+',
-                  body: config.autoPaste
-                    ? 'Transcription pasted!'
-                    : 'Transcription copied to clipboard. Press Ctrl+V to paste.',
-                });
-              } catch (notifErr) {
-                console.error('Notification error:', notifErr);
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        console.error('Transcribe Error', err);
-        await addItem({
-          timestamp: id,
-          text: String(err),
-          duration,
-          error: true,
-        });
-      }
-    } catch (e: any) {
-      if (String(e).includes('SILENCE_DETECTED')) {
-        showToast('Skipped: Silence Detected');
-      } else {
-        console.error('Stop/Transcribe Error', e);
-        showToast('Error processing audio');
-      }
-    } finally {
-      setTranscribing(false);
-    }
-  }, [isRecording, config, recordTimer, startTime, isCancelled, setRecording, setCancelled, setTranscribing, addItem, showToast]);
-  
-  const cancelRecord = useCallback(async () => {
-    if (isTranscribing) {
-      // Cancel backend processing
-      try {
-        await invoke('cancel_transcription');
-      } catch (e) {
-        console.error('Failed to cancel transcription:', e);
-      }
-      setCancelled(true);
-      setTranscribing(false);
-      showToast('Cancelled');
-      return;
-    }
+          // Cloud transcription
+          if (!config.token)
+            throw new Error('Please set your ChatGPT token in settings.');
 
-    if (isRecording && config.soundEnabled) audioController.playEnd();
-    setRecording(false);
-    if (recordTimer) clearInterval(recordTimer);
-    invoke('stop_recording').catch(console.error);
-  }, [
-    isTranscribing,
-    isRecording,
-    config,
-    recordTimer,
-    setCancelled,
-    setTranscribing,
-    setRecording,
-    showToast,
-  ]);
-
-  const toggleRecord = useCallback(async () => {
-    if (isRecording) await stopRecord();
-    else await startRecord();
-  }, [isRecording, startRecord, stopRecord]);
-
-  const transcribeFile = useCallback(
-    async (filePath: string) => {
-      if (isTranscribing || isRecording) {
-        showToast('Busy recording or processing');
-        return;
-      }
-
-      setTranscribing(true);
-      const id = Date.now();
-      const tStart = Date.now();
-
-      try {
-        // SRT-only mode: skip normal transcription, generate SRT directly
-        if (srtConfig.enabled && config.transcriptionEngine === 'local') {
-          const filename =
-            filePath
-              .split(/[\/\\]/)
-              .pop()
-              ?.replace(/\.[^/.]+$/, '') || 'transcription';
-          let outputPath = '';
-
-          if (srtConfig.outputPath === 'default') {
-            const docsDir = await documentDir();
-            const outputDir = await join(docsDir, 'WhisperOutputs');
-            const srtFilename =
-              srtConfig.filenameMode === 'custom'
-                ? srtConfig.customFilename
-                : filename;
-            outputPath = await join(outputDir, `${srtFilename}.srt`);
-          } else {
-            const dir = filePath.substring(0, filePath.lastIndexOf('/'));
-            const srtFilename =
-              srtConfig.filenameMode === 'custom'
-                ? srtConfig.customFilename
-                : filename;
-            outputPath = await join(dir, `${srtFilename}.srt`);
-          }
-
-          try {
-            const srtPath = await invoke<string>('generate_srt', {
-              audioPath: filePath,
-              model: config.localModel || 'Tiny',
-              outputPath,
-              translate: config.localTranslate || false,
-              useGpu: config.useLocalGPU || false,
-            });
-
-            const processingTime = Date.now() - tStart;
-
-            // Add SRT history item with full path
-            await addItem({
-              timestamp: id,
-              text: srtPath,
-              duration: 0,
-              backend: 'SRT',
-              processingTime,
-              isSrt: true,
-              srtPath,
-            });
-
-            showToast('SRT file generated!');
-          } catch (srtErr: any) {
-            console.error('SRT generation failed:', srtErr);
-            // Add error history item
-            await addItem({
-              timestamp: id,
-              text: String(srtErr),
-              duration: 0,
-              error: true,
-              backend: 'SRT',
-              isSrt: true,
-            });
-            showToast('SRT generation failed');
-          }
-          return; // Skip normal transcription
-        }
-
-        // Normal transcription flow
-        let text = '';
-        let backendInfo = '';
-
-        if (config.transcriptionEngine === 'local') {
-          const useGpu = config.useLocalGPU || false;
-          backendInfo = useGpu ? 'Local (GPU)' : 'Local (CPU)';
-
-          text = await invoke<string>('transcribe_local', {
-            path: filePath,
-            model: config.localModel || 'Tiny',
-            useGpu,
-            translate: config.localTranslate || false,
-          });
-        } else {
-          if (!config.token) throw new Error('Set ChatGPT token in settings.');
           backendInfo = 'Cloud (ChatGPT)';
           text = await invoke<string>('transcribe', {
             path: filePath,
             token: config.token,
             userAgent: config.userAgent,
           });
-        }
 
-        const processingTime = Date.now() - tStart;
+          const processingTime = Date.now() - tStart;
 
-        if (isCancelled) {
-          setCancelled(false);
-          return;
-        }
-
-        if (text && text.trim().length > 0) {
           await addItem({
             timestamp: id,
-            text,
+            text: text || '',
             duration: 0,
+            error: false,
             backend: backendInfo,
             processingTime,
           });
-
-          // Auto copy/paste logic
-          if (config.autoCopy) {
-            await writeText(text);
-            if (config.autoPaste) {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-              let pasted = false;
-              for (let i = 0; i < 3 && !pasted; i++) {
-                try {
-                  await invoke('paste_text');
-                  pasted = true;
-                  showToast('Pasted');
-                } catch (e) {
-                  if (i < 2)
-                    await new Promise((resolve) => setTimeout(resolve, 200));
-                }
-              }
-              if (!pasted) showToast('Copied (paste failed)');
-            } else {
-              showToast('Copied to clipboard');
-            }
-          } else {
-            showToast('Transcription Complete');
-          }
         }
-      } catch (err: any) {
-        console.error('File Transcription Error', err);
-        showToast('Error processing file');
+      } catch (err: unknown) {
+        console.error('Transcribe file error:', err);
+        const addItem = useHistoryStore.getState().addItem;
         await addItem({
           timestamp: id,
           text: String(err),
@@ -404,30 +198,23 @@ export const useRecording = () => {
           error: true,
         });
       } finally {
-        setTranscribing(false);
+        useRecordingStore.setState({
+          isTranscribing: false,
+          isGeneratingSrt: false,
+        });
       }
     },
-    [
-      isTranscribing,
-      isRecording,
-      config,
-      srtConfig,
-      setTranscribing,
-      isCancelled,
-      setCancelled,
-      addItem,
-      showToast,
-    ]
+    [config, showToast, store.isTranscribing, store.isRecording]
   );
 
   return {
-    isRecording,
-    isTranscribing,
-    startTime,
-    startRecord,
-    stopRecord,
-    cancelRecord,
-    toggleRecord,
+    isRecording: store.isRecording,
+    isTranscribing: store.isTranscribing,
+    startTime: store.startTime,
+    toggleRecord: useCallback(() => recordingController.toggleRecord(), []),
+    startRecord: useCallback(() => recordingController.startRecord(), []),
+    stopRecord: useCallback(() => recordingController.stopRecord(), []),
+    cancelRecord: useCallback(() => recordingController.cancelRecord(), []),
     transcribeFile,
   };
 };
