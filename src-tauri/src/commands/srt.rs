@@ -71,23 +71,7 @@ fn needs_conversion(path: &str) -> bool {
     true
 }
 
-/// Format milliseconds to SRT timestamp format: 00:00:00,000
-fn format_srt_timestamp(ms: i64) -> String {
-    let total_seconds = ms / 1000;
-    let hours = total_seconds / 3600;
-    let minutes = (total_seconds % 3600) / 60;
-    let seconds = total_seconds % 60;
-    let millis = ms % 1000;
-    format!("{:02}:{:02}:{:02},{:03}", hours, minutes, seconds, millis)
-}
 
-/// A single subtitle entry
-#[derive(Clone, Debug)]
-struct SubtitleEntry {
-    start_ms: i64,
-    end_ms: i64,
-    text: String,
-}
 
 /// Energy-based VAD - returns true if segment has speech
 fn has_speech(samples: &[f32], threshold: f32) -> bool {
@@ -99,55 +83,7 @@ fn has_speech(samples: &[f32], threshold: f32) -> bool {
 }
 
 
-/// Format subtitles with line breaks for readability (max 42 chars per line)
-fn format_subtitle_text(text: &str) -> String {
-    let max_line_length = 42;
-    let words: Vec<&str> = text.split_whitespace().collect();
-    let mut lines: Vec<String> = Vec::new();
-    let mut current_line = String::new();
 
-    for word in words {
-        if current_line.is_empty() {
-            current_line = word.to_string();
-        } else if current_line.len() + 1 + word.len() <= max_line_length {
-            current_line = format!("{} {}", current_line, word);
-        } else {
-            lines.push(current_line);
-            current_line = word.to_string();
-            if lines.len() >= 2 {
-                // Max 2 lines reached, stop
-                break;
-            }
-        }
-    }
-    
-    if !current_line.is_empty() && lines.len() < 2 {
-        lines.push(current_line);
-    }
-
-    lines.join("\n")
-}
-
-/// Generate SRT content from subtitles
-fn generate_srt_content(subtitles: &[SubtitleEntry]) -> String {
-    let mut content = String::new();
-    
-    for (i, sub) in subtitles.iter().enumerate() {
-        // Subtitle number
-        content.push_str(&format!("{}\n", i + 1));
-        // Timestamp line
-        content.push_str(&format!(
-            "{} --> {}\n",
-            format_srt_timestamp(sub.start_ms),
-            format_srt_timestamp(sub.end_ms)
-        ));
-        // Text with proper line breaks
-        content.push_str(&format_subtitle_text(&sub.text));
-        content.push_str("\n\n");
-    }
-
-    content
-}
 
 #[tauri::command]
 pub async fn generate_srt<R: Runtime>(
@@ -408,103 +344,8 @@ pub async fn generate_srt<R: Runtime>(
         }
     });
 
-    // Process FULL audio in one pass for natural sentence segmentation
-    let result = state.full(whisper_params, &samples);
-    
-    // Stop progress thread
-    progress_running.store(false, std::sync::atomic::Ordering::SeqCst);
-    
-    result.map_err(|e| format!("Failed to run model: {}", e))?;
-
-    // Emit progress after transcription
-    let _ = app.emit("srt-progress", SrtProgress {
-        percentage: 85,
-        processed_ms: total_duration_ms,
-        total_ms: total_duration_ms,
-        status: "processing_segments".to_string(),
-    });
-
-    // Extract segments (natural sentences from Whisper)
-    let num_segments = state.full_n_segments()
-        .map_err(|e| format!("Failed to get segments: {}", e))?;
-    
-    let mut all_tokens: Vec<(i64, i64, String)> = Vec::new();
-    
-    for seg_idx in 0..num_segments {
-        let seg_start = state.full_get_segment_t0(seg_idx).unwrap_or(0);
-        let seg_end = state.full_get_segment_t1(seg_idx).unwrap_or(0);
-        let seg_text = state.full_get_segment_text(seg_idx).unwrap_or_default();
-        
-        // Convert centiseconds to milliseconds
-        let start_ms = seg_start as i64 * 10;
-        let end_ms = seg_end as i64 * 10;
-        
-        // Filter hallucinations - be more careful to not filter legitimate text
-        let lower = seg_text.to_lowercase();
-        let trimmed = seg_text.trim();
-        
-        // Skip common hallucination patterns
-        if lower.contains("subscribe") || lower.contains("amara.org") || 
-           lower.contains("subtitles by") || lower.contains("transcribed by") ||
-           lower.contains("(speaking") {
-            continue;
-        }
-        
-        // Skip pure annotation segments like "[Music]", "[Applause]", etc.
-        // But keep segments that have actual text alongside annotations
-        if trimmed.starts_with('[') && trimmed.ends_with(']') && !trimmed.contains(' ') {
-            // Pure annotation like "[Music]" or "[Applause]"
-            continue;
-        }
-        
-        // Remove inline annotations but keep the text
-        let cleaned_text = trimmed
-            .replace("[Music]", "")
-            .replace("[music]", "")
-            .replace("[Applause]", "")
-            .replace("[applause]", "")
-            .replace("[Laughter]", "")
-            .replace("[laughter]", "")
-            .trim()
-            .to_string();
-
-        if !cleaned_text.is_empty() {
-            all_tokens.push((start_ms, end_ms, cleaned_text));
-        }
-    }
-
-    // Emit generating SRT
-    let _ = app.emit("srt-progress", SrtProgress {
-        percentage: 90,
-        processed_ms: total_duration_ms,
-        total_ms: total_duration_ms,
-        status: "generating_srt".to_string(),
-    });
-
-    // Use Whisper's segments directly (they are already natural sentences)
-    let subtitles: Vec<SubtitleEntry> = all_tokens.iter()
-        .map(|(start, end, text)| SubtitleEntry {
-            start_ms: *start,
-            end_ms: *end,
-            text: text.clone(),
-        })
-        .collect();
-
-    // Generate SRT content
-    let srt_content = generate_srt_content(&subtitles);
-
-    // Emit generating file
-    let _ = app.emit("srt-progress", SrtProgress {
-        percentage: 95,
-        processed_ms: total_duration_ms,
-        total_ms: total_duration_ms,
-        status: "saving_file".to_string(),
-    });
-
-    // Save to file
+    // Handle duplicate files logic
     let mut final_output_path = PathBuf::from(&output_path);
-    
-    // Handle duplicate files
     if duplicate_mode == "rename" && final_output_path.exists() {
         // Find a unique filename by adding _1, _2, etc.
         let stem = final_output_path.file_stem()
@@ -531,17 +372,109 @@ pub async fn generate_srt<R: Runtime>(
         std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    let mut file = File::create(&final_output_path).map_err(|e| format!("Failed to create file: {}", e))?;
-    file.write_all(srt_content.as_bytes()).map_err(|e| format!("Failed to write file: {}", e))?;
+    // Open file for writing immediately (streaming mode)
+    let mut file = File::create(&final_output_path)
+        .map_err(|e| format!("Failed to create output file: {}", e))?;
+    
+    // Counter for SRT segments
+    let mut segment_counter = 1;
+    
+    // Set up segment callback for REAL-TIME writing
+    // This allows data to be saved even if the app crashes mid-process
+    whisper_params.set_segment_callback_safe(move |data: whisper_rs::SegmentCallbackData| {
+        let seg_text = data.text;
+        
+        // Filter hallucinations - same logic as before
+        let lower = seg_text.to_lowercase();
+        let trimmed = seg_text.trim();
+        
+        // Skip common hallucination patterns
+        if lower.contains("subscribe") || lower.contains("amara.org") || 
+           lower.contains("subtitles by") || lower.contains("transcribed by") ||
+           lower.contains("(speaking") {
+            return;
+        }
+        
+        // Skip pure annotation segments like "[Music]", "[Applause]", etc.
+        if trimmed.starts_with('[') && trimmed.ends_with(']') && !trimmed.contains(' ') {
+            return;
+        }
+        
+        // Remove inline annotations but keep the text
+        let cleaned_text = if trimmed.contains('[') && trimmed.contains(']') {
+            let mut result = String::new();
+            let mut in_bracket = false;
+            for c in trimmed.chars() {
+                if c == '[' { in_bracket = true; continue; }
+                if c == ']' { in_bracket = false; continue; }
+                if !in_bracket { result.push(c); }
+            }
+            // If cleaning resulted in empty string (e.g. "[Music]" becomes ""), skip
+            if result.trim().is_empty() { return; }
+            result
+        } else {
+            trimmed.to_string()
+        };
+        
+        if cleaned_text.trim().is_empty() { return; }
 
-    // Emit complete
+        // Determine timestamp unit based on whether DTW is enabled or not
+        // Whisper default is centiseconds (10ms units)
+        // With DTW enabled, timestamps are more precise but seemingly still scaled?
+        // Let's assume consistent conversion: unit * 10 = milliseconds
+        let start_ms = data.start_timestamp * 10;
+        let end_ms = data.end_timestamp * 10;
+        
+        // Format timestamp: HH:MM:SS,mmm
+        fn format_timestamp(ms: i64) -> String {
+            let hours = ms / 3600000;
+            let minutes = (ms % 3600000) / 60000;
+            let seconds = (ms % 60000) / 1000;
+            let millis = ms % 1000;
+            format!("{:02}:{:02}:{:02},{:03}", hours, minutes, seconds, millis)
+        }
+        
+        let start_fmt = format_timestamp(start_ms);
+        let end_fmt = format_timestamp(end_ms);
+        
+        // Write segment to file immediately
+        let srt_entry = format!("{}\n{} --> {}\n{}\n\n", 
+            segment_counter, start_fmt, end_fmt, cleaned_text.trim());
+            
+        if let Err(e) = file.write_all(srt_entry.as_bytes()) {
+            eprintln!("[SRT] Failed to write segment: {}", e);
+        }
+        if let Err(e) = file.flush() { // Flush to ensure disk save
+            eprintln!("[SRT] Failed to flush file: {}", e);
+        }
+        
+        segment_counter += 1;
+    });
+
+    // Process FULL audio in one pass
+    // Segments are now written in real-time via the callback above
+    let result = state.full(whisper_params, &samples);
+    
+    // Stop progress thread
+    progress_running.store(false, std::sync::atomic::Ordering::SeqCst);
+    
+    result.map_err(|e| format!("Failed to run model: {}", e))?;
+
+    // Emit progress after transcription
     let _ = app.emit("srt-progress", SrtProgress {
         percentage: 100,
         processed_ms: total_duration_ms,
         total_ms: total_duration_ms,
         status: "complete".to_string(),
     });
+    
+    // We kept the file open in the closure, so it simply closes when dropped.
+    // Logic for duplicate handling and path generation was done before this block
+    // and `final_output_path` was used.
 
+    /* REMOVED: Old post-processing loop 
+       Segments are already written to disk!
+    */
     // Clean up temp file
     if let Some(temp) = temp_wav {
         let _ = std::fs::remove_file(&temp);
@@ -549,3 +482,4 @@ pub async fn generate_srt<R: Runtime>(
 
     Ok(final_output_path.to_string_lossy().to_string())
 }
+
