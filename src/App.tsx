@@ -1,5 +1,5 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
-import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { Flex } from '@radix-ui/themes';
 import { MainView } from './components/MainView';
@@ -13,6 +13,7 @@ import { useCLIEvents } from './hooks/useCLIEvents';
 import { toggleRecord } from './lib/recordingController';
 import { listen } from '@tauri-apps/api/event';
 import { useDownloadStore } from './stores/useDownloadStore';
+import { useUpdater } from './hooks/useUpdater';
 
 export type ViewType = 'main' | 'settings' | 'history';
 
@@ -98,6 +99,7 @@ const App: React.FC = () => {
 
   useShortcuts();
   useCLIEvents({ onToggle: toggleRecord });
+  useUpdater();
 
   useEffect(() => {
     const unlisten = listen<{model_name: string, percentage: number}>('download_progress', (event) => {

@@ -135,7 +135,7 @@ export const SettingsView: React.FC = () => {
               }}
             >
               <SegmentedControl.Item value="toggle">Toggle</SegmentedControl.Item>
-              <SegmentedControl.Item value="hold" disabled={isWayland}>Hold</SegmentedControl.Item>
+              <SegmentedControl.Item value="hold" style={isWayland ? { opacity: 0.4, pointerEvents: 'none' } : {}}>Hold</SegmentedControl.Item>
             </SegmentedControl.Root>
           </SettingRow>
 
