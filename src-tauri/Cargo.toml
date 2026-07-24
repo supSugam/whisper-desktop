@@ -48,3 +48,5 @@ cuda = ["whisper-rs/cuda"]
 vulkan = ["whisper-rs/vulkan"]
 rocm = ["whisper-rs/hipblas"]
 
+[profile.release]
+strip = false
