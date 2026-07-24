@@ -191,7 +191,8 @@ export const MainView: React.FC = () => {
           border: '1px solid var(--gray-5)',
           borderRadius: '16px',
           overflow: 'hidden',
-          boxShadow: '0 4px 12px var(--black-a3)'
+          boxShadow: '0 4px 12px var(--black-a3)',
+          minWidth: '96px',
         }}
       >
         {isRecording ? (

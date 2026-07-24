@@ -8,7 +8,7 @@ export interface ToastAction {
 interface ToastState {
   message: string;
   isVisible: boolean;
-  action: ToastAction | null;
+  action?: ToastAction;
 
   show: (message: string, duration?: number, action?: ToastAction) => void;
   hide: () => void;
@@ -20,33 +20,33 @@ let timeoutId: ReturnType<typeof setTimeout>;
 export const useToastStore = create<ToastState>((set) => ({
   message: '',
   isVisible: false,
-  action: null,
+  action: undefined,
 
-  show: (message, duration = 3000, action = null) => {
+  show: (message, duration = 3000, action = undefined) => {
     set({ message, isVisible: true, action });
 
     if (timeoutId) clearTimeout(timeoutId);
 
     if (duration > 0) {
       timeoutId = setTimeout(() => {
-        set({ isVisible: false, action: null });
+        set({ isVisible: false, action: undefined });
       }, duration);
     }
   },
 
   hide: () => {
     if (timeoutId) clearTimeout(timeoutId);
-    set({ isVisible: false, action: null });
+    set({ isVisible: false, action: undefined });
   },
 
-  showToast: (message, duration = 3000, action = null) => {
+  showToast: (message, duration = 3000, action = undefined) => {
     set({ message, isVisible: true, action });
 
     if (timeoutId) clearTimeout(timeoutId);
 
     if (duration > 0) {
       timeoutId = setTimeout(() => {
-        set({ isVisible: false, action: null });
+        set({ isVisible: false, action: undefined });
       }, duration);
     }
   },
