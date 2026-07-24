@@ -37,8 +37,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev patchelf libasound2-dev pkg-config build-essential libssl-dev libgtk-3-dev libayatana-appindicator3-dev
-          # Vulkan SDK for GPU acceleration on Linux
-          sudo apt-get install -y libvulkan1 libvulkan-dev vulkan-tools glslang-tools glslang-dev
+          # Install LunarG Vulkan SDK (includes glslc required by whisper.cpp ggml backend)
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+          sudo apt-get update
+          sudo apt-get install -y vulkan-sdk
 
       - name: install frontend dependencies
         run: npm install
