@@ -15,7 +15,8 @@ interface RecordingState {
   startTime: number;
   recordTimer: number | null;
   srtProgress: SrtProgress | null;
-  
+  resultMessage: string | null;
+
   // Actions
   setRecording: (isRecording: boolean) => void;
   setTranscribing: (isTranscribing: boolean) => void;
@@ -24,6 +25,7 @@ interface RecordingState {
   setRecordTimer: (timer: number | null) => void;
   setGeneratingSrt: (isGeneratingSrt: boolean) => void;
   setSrtProgress: (progress: SrtProgress | null) => void;
+  setResultMessage: (msg: string | null) => void;
   reset: () => void;
 }
 
@@ -35,11 +37,12 @@ const initialState = {
   startTime: 0,
   recordTimer: null,
   srtProgress: null,
+  resultMessage: null,
 };
 
 export const useRecordingStore = create<RecordingState>((set) => ({
   ...initialState,
-  
+
   setRecording: (isRecording) => set({ isRecording }),
   setTranscribing: (isTranscribing) => set({ isTranscribing }),
   setCancelled: (isCancelled) => set({ isCancelled }),
@@ -47,5 +50,6 @@ export const useRecordingStore = create<RecordingState>((set) => ({
   setRecordTimer: (timer) => set({ recordTimer: timer }),
   setGeneratingSrt: (isGeneratingSrt) => set({ isGeneratingSrt }),
   setSrtProgress: (srtProgress) => set({ srtProgress }),
+  setResultMessage: (resultMessage) => set({ resultMessage }),
   reset: () => set(initialState),
 }));

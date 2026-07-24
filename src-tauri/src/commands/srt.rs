@@ -73,16 +73,6 @@ fn needs_conversion(path: &str) -> bool {
 
 
 
-/// Energy-based VAD - returns true if segment has speech
-fn has_speech(samples: &[f32], threshold: f32) -> bool {
-    if samples.is_empty() {
-        return false;
-    }
-    let energy: f32 = samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32;
-    energy > threshold
-}
-
-
 
 
 #[tauri::command]
@@ -126,25 +116,40 @@ pub async fn generate_srt<R: Runtime>(
         _ => None, // Unknown model, skip DTW
     };
     
-    let mut params = WhisperContextParameters::default();
-    
-    // Enable DTW for precise millisecond timestamps if model is supported
-    if let Some(preset) = dtw_preset {
-        println!("[SRT] Enabling DTW with {:?} preset for precise timestamps", preset);
-        params.dtw_parameters(DtwParameters {
-            mode: DtwMode::ModelPreset { model_preset: preset },
-            dtw_mem_size: 1024 * 1024 * 128, // 128MB for DTW computation
-        });
-    }
-    
-    #[cfg(any(feature = "cuda", feature = "vulkan", feature = "rocm"))]
-    {
-        params.use_gpu(use_gpu);
-    }
-    let _ = use_gpu; // Suppress warning when no GPU features
+    let model_state = app.state::<crate::state::WhisperModelState>();
+    let model_key = format!("{}-gpu:{}-dtw:{}", model_path.to_string_lossy(), use_gpu, dtw_preset.is_some());
 
-    let ctx = WhisperContext::new_with_params(&model_path.to_string_lossy(), params)
-        .map_err(|e| format!("Failed to load model: {}", e))?;
+    let mut ctx_guard = model_state.context.lock().unwrap();
+
+    if ctx_guard.as_ref().map(|(k, _)| k) != Some(&model_key) {
+        let _ = app.emit("transcribe-progress", crate::commands::local::TranscribeProgress {
+            percentage: 10,
+            processed_ms: 0,
+            total_ms: 0,
+            status: "loading_model".to_string(),
+        });
+        
+        let mut params = WhisperContextParameters::default();
+        if let Some(preset) = dtw_preset {
+            println!("[SRT] Enabling DTW with {:?} preset for precise timestamps", preset);
+            params.dtw_parameters(DtwParameters {
+                mode: DtwMode::ModelPreset { model_preset: preset },
+                dtw_mem_size: 1024 * 1024 * 128,
+            });
+        }
+        
+        #[cfg(any(feature = "cuda", feature = "vulkan", feature = "rocm"))]
+        {
+            params.use_gpu(use_gpu);
+        }
+        let _ = use_gpu;
+        
+        let ctx = WhisperContext::new_with_params(&model_path.to_string_lossy(), params)
+            .map_err(|e| format!("Failed to load model: {}", e))?;
+        *ctx_guard = Some((model_key, ctx));
+    }
+    
+    let ctx = &ctx_guard.as_ref().unwrap().1;
 
     let mut state = ctx.create_state().map_err(|e| format!("Failed to create state: {}", e))?;
 
@@ -189,8 +194,10 @@ pub async fn generate_srt<R: Runtime>(
         })?;
     let spec = reader.spec();
 
-    let raw_samples: Vec<i16> = reader.samples::<i16>().map(|s| s.unwrap_or(0)).collect();
-    let mut samples: Vec<f32> = raw_samples.iter().map(|&s| s as f32 / 32768.0).collect();
+    // Optimize: Read directly to f32 to avoid holding raw i16 vector in memory
+    let mut samples: Vec<f32> = reader.samples::<i16>()
+        .map(|s| s.unwrap_or(0) as f32 / 32768.0)
+        .collect();
     
     // Stereo to Mono
     if spec.channels == 2 {
@@ -227,44 +234,24 @@ pub async fn generate_srt<R: Runtime>(
         status: "preprocessing".to_string(),
     });
 
-    // Simple VAD preprocessing - detect speech regions
-    // Very low threshold to only skip ABSOLUTE silence, not quiet speech
-    let chunk_size = 16000 / 10; // 100ms chunks
-    let vad_threshold = 0.00001; // Very low - only skip near-zero energy (true silence)
-    let mut speech_regions: Vec<(usize, usize)> = Vec::new();
-    let mut in_speech = false;
-    let mut speech_start: usize = 0;
-
-    for (i, chunk) in samples.chunks(chunk_size).enumerate() {
-        let is_speech = has_speech(chunk, vad_threshold);
-        
-        if is_speech && !in_speech {
-            speech_start = i * chunk_size;
-            in_speech = true;
-        } else if !is_speech && in_speech {
-            // Add some padding
-            let padding = chunk_size * 2;
-            let end = (i * chunk_size + padding).min(samples.len());
-            speech_regions.push((speech_start.saturating_sub(padding), end));
-            in_speech = false;
-        }
-    }
-    
-    // Handle case where speech continues to end
-    if in_speech {
-        speech_regions.push((speech_start.saturating_sub(chunk_size * 2), samples.len()));
-    }
-
-    // If no speech detected, process entire audio
-    if speech_regions.is_empty() {
-        speech_regions.push((0, samples.len()));
-    }
-
     // Reset cancellation flag
     crate::SRT_CANCELLED.store(false, std::sync::atomic::Ordering::SeqCst);
 
     // Configure Whisper params for precise timestamps
     let mut whisper_params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    
+    // Limit threads to prevent system freeze/overwhelm
+    // Leave 2 cores free for OS/UI if possible
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    // Use half of available threads, maxing out at physical cores minus 2 for safety
+    let n_threads = if threads > 4 { 
+        (threads as f32 * 0.5) as i32 
+    } else { 
+        1 
+    };
+    whisper_params.set_n_threads(n_threads);
+    println!("[SRT] Using {} threads (of {} available)", n_threads, threads);
+
     whisper_params.set_language(Some("auto"));
     whisper_params.set_translate(translate);
     whisper_params.set_print_special(false);
@@ -274,8 +261,8 @@ pub async fn generate_srt<R: Runtime>(
     
     // ENABLE token timestamps for precise millisecond timing
     whisper_params.set_token_timestamps(true);
-    // Set maximum segment length for better granularity (in tokens)
-    whisper_params.set_max_len(0); // 0 = no limit, let natural breaks happen
+    // Set maximum segment length to force more frequent updates (approx 60 tokens)
+    whisper_params.set_max_len(60); 
     
     // CRITICAL: Suppress non-speech tokens to prevent [Music], [BLANK_AUDIO] hallucinations
     whisper_params.set_suppress_blank(true);
@@ -373,6 +360,7 @@ pub async fn generate_srt<R: Runtime>(
     }
 
     // Open file for writing immediately (streaming mode)
+    // Use raw File with explicit sync_data for maximum safety
     let mut file = File::create(&final_output_path)
         .map_err(|e| format!("Failed to create output file: {}", e))?;
     
@@ -392,11 +380,13 @@ pub async fn generate_srt<R: Runtime>(
         if lower.contains("subscribe") || lower.contains("amara.org") || 
            lower.contains("subtitles by") || lower.contains("transcribed by") ||
            lower.contains("(speaking") {
+            println!("[SRT] Filtered hallucination: {}", trimmed);
             return;
         }
         
         // Skip pure annotation segments like "[Music]", "[Applause]", etc.
         if trimmed.starts_with('[') && trimmed.ends_with(']') && !trimmed.contains(' ') {
+            println!("[SRT] Filtered annotation: {}", trimmed);
             return;
         }
         
@@ -440,12 +430,15 @@ pub async fn generate_srt<R: Runtime>(
         // Write segment to file immediately
         let srt_entry = format!("{}\n{} --> {}\n{}\n\n", 
             segment_counter, start_fmt, end_fmt, cleaned_text.trim());
+        
+        println!("[SRT] Writing segment {}: {} -> {}", segment_counter, start_fmt, end_fmt);
             
         if let Err(e) = file.write_all(srt_entry.as_bytes()) {
             eprintln!("[SRT] Failed to write segment: {}", e);
         }
-        if let Err(e) = file.flush() { // Flush to ensure disk save
-            eprintln!("[SRT] Failed to flush file: {}", e);
+        // Force OS to flush to disk
+        if let Err(e) = file.sync_data() {
+            eprintln!("[SRT] Failed to sync file: {}", e);
         }
         
         segment_counter += 1;

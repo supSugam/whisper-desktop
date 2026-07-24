@@ -47,10 +47,7 @@ export const useSrtGeneration = () => {
         return;
       }
 
-      if (config.transcriptionEngine !== 'local') {
-        showToast('SRT generation requires local Whisper');
-        return;
-      }
+
 
       setGeneratingSrt(true);
       setSrtProgress({
@@ -65,7 +62,7 @@ export const useSrtGeneration = () => {
         let outputPath = customOutputPath;
         if (!outputPath) {
           const docsDir = await documentDir();
-          const outputDir = await join(docsDir, 'WhisperOutputs');
+          const outputDir = await join(docsDir, 'YappieOutputs');
           const filename =
             audioPath
               .split('/')

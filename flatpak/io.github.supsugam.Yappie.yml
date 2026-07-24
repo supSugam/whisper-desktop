@@ -1,0 +1,84 @@
+app-id: io.github.supsugam.Yappie
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+
+command: yappie
+
+finish-args:
+  # Display
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+
+  # Audio recording
+  - --socket=pulseaudio
+
+  # Network (for model downloads)
+  - --share=network
+
+  # Clipboard access
+  - --socket=session-bus
+
+  # Notifications
+  - --talk-name=org.freedesktop.Notifications
+
+  # System tray
+  - --talk-name=org.kde.StatusNotifierWatcher
+
+  # Filesystem access for SRT output
+  - --filesystem=xdg-documents
+
+modules:
+  # FFmpeg for audio conversion
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --disable-doc
+      - --disable-static
+      - --enable-shared
+      - --disable-programs
+      - --enable-ffmpeg
+      - --disable-ffplay
+      - --disable-ffprobe
+      - --disable-network
+      - --disable-encoders
+      - --disable-muxers
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz
+        sha256: 40973d44970dbc83ef302b0609f2e74982be2d85916dd2ee7472d30678a7abe6
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+
+  - name: yappie
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+      env:
+        CARGO_HOME: /run/build/yappie/cargo
+        npm_config_nodedir: /usr/lib/sdk/node22
+    build-commands:
+      - npm ci --offline
+      - npm run build
+      - cargo build --release --manifest-path src-tauri/Cargo.toml --no-default-features --features custom-protocol
+      - install -Dm755 src-tauri/target/release/yappie /app/bin/yappie
+      - install -Dm644 src-tauri/io.github.supsugam.Yappie.metainfo.xml /app/share/metainfo/io.github.supsugam.Yappie.metainfo.xml
+      - install -Dm644 src-tauri/icons/icon.png /app/share/icons/hicolor/256x256/apps/io.github.supsugam.Yappie.png
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/io.github.supsugam.Yappie.png
+      - install -Dm644 src-tauri/icons/64x64.png /app/share/icons/hicolor/64x64/apps/io.github.supsugam.Yappie.png
+      - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/io.github.supsugam.Yappie.png
+    sources:
+      - type: dir
+        path: ..
+      # Offline npm dependencies
+      - type: file
+        path: npm-sources.json
+      # Offline cargo dependencies
+      - type: file
+        path: cargo-sources.json

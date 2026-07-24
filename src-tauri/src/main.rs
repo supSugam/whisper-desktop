@@ -2,6 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    std::env::set_var("GTK_THEME", "Adwaita:dark");
-    whisper_plus_lib::run()
+    yappie_lib::run()
 }

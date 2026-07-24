@@ -100,7 +100,8 @@ pub async fn download_model<R: Runtime>(
         .1;
 
     let models_dir = get_models_dir(&app)?;
-    let file_path = models_dir.join(format!("ggml-{}.bin", model_name.to_lowercase()));
+    let final_file_path = models_dir.join(format!("ggml-{}.bin", model_name.to_lowercase()));
+    let tmp_file_path = models_dir.join(format!("ggml-{}.bin.tmp", model_name.to_lowercase()));
 
     // Clear any previous cancellation flag
     download_state.clear(&model_name);
@@ -110,8 +111,9 @@ pub async fn download_model<R: Runtime>(
     
     let total_size = response.content_length().unwrap_or(0);
     let mut stream = response.bytes_stream();
-    let mut file = fs::File::create(&file_path).map_err(|e| e.to_string())?;
+    let mut file = fs::File::create(&tmp_file_path).map_err(|e| e.to_string())?;
     let mut downloaded: u64 = 0;
+    let mut last_emit_time = std::time::Instant::now();
 
     let window = app.get_webview_window("main").ok_or("Main window not found")?;
 
@@ -120,7 +122,7 @@ pub async fn download_model<R: Runtime>(
         if download_state.is_cancelled(&model_name) {
             // Delete partial file
             drop(file); // Ensure file handle is closed before attempting to remove
-            let _ = fs::remove_file(&file_path);
+            let _ = fs::remove_file(&tmp_file_path);
             download_state.clear(&model_name);
             return Err("Download cancelled".to_string());
         }
@@ -129,7 +131,7 @@ pub async fn download_model<R: Runtime>(
         file.write_all(&chunk).map_err(|e| e.to_string())?;
         downloaded += chunk.len() as u64;
 
-        if total_size > 0 {
+        if total_size > 0 && last_emit_time.elapsed().as_millis() > 100 {
             let percentage = (downloaded as f64 / total_size as f64) * 100.0;
             let _ = window.emit("download_progress", DownloadProgress {
                 model_name: model_name.clone(),
@@ -137,8 +139,13 @@ pub async fn download_model<R: Runtime>(
                 downloaded,
                 percentage,
             });
+            last_emit_time = std::time::Instant::now();
         }
     }
+
+    // Download finished successfully, rename tmp file to final file
+    drop(file);
+    fs::rename(&tmp_file_path, &final_file_path).map_err(|e| e.to_string())?;
 
     download_state.clear(&model_name);
     Ok(())

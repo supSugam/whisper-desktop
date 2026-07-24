@@ -1,52 +1,36 @@
-import React from 'react';
-import { HistoryItem as HistoryItemType } from '../types';
+import React, { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { useHistoryStore } from '../stores/useHistoryStore';
 import { useToastStore } from '../stores/useToastStore';
-import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { invoke } from '@tauri-apps/api/core';
-import { ICONS } from '../ui/icons';
-import { timeAgo, formatDuration } from '../lib/utils';
+import type { HistoryItem as HistoryItemType } from '../types';
+import { Card, Flex, Text, Badge, IconButton } from '@radix-ui/themes';
+import { Copy, FolderOpen, Trash2 } from 'lucide-react';
 
-interface HistoryItemProps {
+const timeAgo = (ts: number): string => {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return `${Math.floor(diff / 86400000)}d ago`;
+};
+
+interface Props {
   item: HistoryItemType;
 }
 
-export const HistoryItem: React.FC<HistoryItemProps> = ({ item }) => {
-  const { removeItem } = useHistoryStore();
+export const HistoryItem: React.FC<Props> = ({ item }) => {
+  const [expanded, setExpanded] = useState(false);
+  const removeItem = useHistoryStore(state => state.removeItem);
   const showToast = useToastStore(state => state.show);
-  
+
   const handleCopy = async () => {
     try {
-      if (item.isSrt && item.srtPath) {
-        // For SRT, copy the file path
-        await writeText(item.srtPath);
-        showToast('Path copied');
-      } else {
-        await writeText(item.text);
-        showToast('Copied');
-      }
+      await writeText(item.text);
+      showToast('Copied to clipboard');
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const handleOpenFile = async () => {
-    if (item.srtPath) {
-      try {
-        await invoke('open_link', { url: item.srtPath });
-      } catch (e) {
-        console.error('Failed to open file:', e);
-      }
-    }
-  };
-
-  const handleOpenFolder = async () => {
-    if (item.srtPath) {
-      try {
-        await invoke('open_folder', { path: item.srtPath });
-      } catch (e) {
-        console.error('Failed to open folder:', e);
-      }
+      showToast('Failed to copy');
     }
   };
 
@@ -54,150 +38,71 @@ export const HistoryItem: React.FC<HistoryItemProps> = ({ item }) => {
     await removeItem(item.timestamp);
   };
 
-  const isError = !!item.error;
-  const isEmpty = !item.text || item.text.trim().length === 0;
-  const isSrt = !!item.isSrt;
+  const handleOpenFolder = async () => {
+    if (item.srtPath) {
+      try {
+        await invoke('open_folder', { path: item.srtPath });
+      } catch (e) {
+        console.error(e);
+        showToast('Failed to open folder');
+      }
+    }
+  };
 
-  const ago = timeAgo(item.timestamp);
-  const dur = item.duration ? formatDuration(item.duration) : '';
+  const isLong = item.text.length > 100;
+  const displayText = expanded || !isLong ? item.text : `${item.text.slice(0, 100)}…`;
 
-  let cardClass = 'history-item';
-  if (isError) cardClass += ' error';
-  if (isEmpty && !isSrt) cardClass += ' empty';
-  if (isSrt) cardClass += ' srt-item';
-
-  const leftElements: React.ReactNode[] = [<span key="ago">{ago}</span>];
-
-  if (dur && !isSrt) {
-    leftElements.push(
-      <span key="dur" className="duration-chip">
-        {dur}
-      </span>
-    );
-  }
-  if (!dur && isEmpty && !isSrt) {
-    leftElements.push(
-      <span key="silence" style={{ color: 'var(--warning-color)' }}>
-        Silence
-      </span>
-    );
-  }
-  if (isError) {
-    leftElements.splice(
-      0,
-      leftElements.length,
-      <span key="error" style={{ color: 'var(--danger-color)' }}>
-        {ago} • Error
-      </span>
-    );
-  }
-
-  const processDur = item.processingTime
-    ? `${(item.processingTime / 1000).toFixed(1)}s`
-    : '';
-  const backend = item.backend || '';
-
-  const pills: React.ReactNode[] = [];
-
-  // SRT badge
-  if (isSrt) {
-    pills.push(
-      <span key="srt" className="info-pill pill-srt" title="Subtitle File">
-        <span dangerouslySetInnerHTML={{ __html: ICONS.download }} /> SRT
-      </span>
-    );
-  } else if (backend) {
-    const isCloud = backend.includes('Cloud');
-    const isGPU = backend.includes('GPU');
-    const cls = isCloud ? 'pill-cloud' : isGPU ? 'pill-gpu' : 'pill-cpu';
-    const icon = isCloud ? ICONS.cloud : isGPU ? ICONS.gpu : ICONS.cpu;
-    pills.push(
-      <span key="backend" className={`info-pill ${cls}`} title="Engine">
-        <span dangerouslySetInnerHTML={{ __html: icon }} /> {backend}
-      </span>
-    );
-  }
-  if (processDur && !isSrt) {
-    pills.push(
-      <span key="time" className="info-pill pill-time" title="Processing Time">
-        <span dangerouslySetInnerHTML={{ __html: ICONS.timer }} /> {processDur}
-      </span>
-    );
-  }
-
-  const actions: React.ReactNode[] = [];
-
-  if (isSrt && item.srtPath && !isError) {
-    // Open file action for SRT
-    actions.push(
-      <button
-        key="open"
-        className="action-btn"
-        onClick={handleOpenFile}
-        title="Open File"
-      >
-        <span dangerouslySetInnerHTML={{ __html: ICONS.external }} />
-      </button>
-    );
-    // Open folder action
-    actions.push(
-      <button
-        key="folder"
-        className="action-btn"
-        onClick={handleOpenFolder}
-        title="Open Folder"
-      >
-        <span dangerouslySetInnerHTML={{ __html: ICONS.folder }} />
-      </button>
-    );
-  }
-  
-  if (!isError && (!isEmpty || isSrt)) {
-    actions.push(
-      <button key="copy" className="action-btn" onClick={handleCopy} title={isSrt ? "Copy Path" : "Copy"}>
-        <span dangerouslySetInnerHTML={{ __html: ICONS.copy }} />
-      </button>
-    );
-  }
-  actions.push(
-    <button key="delete" className="action-btn delete" onClick={handleDelete} title="Delete">
-      <span dangerouslySetInnerHTML={{ __html: ICONS.trash }} />
-    </button>
-  );
-  
-  let content: React.ReactNode;
-  if (isError) {
-    content = <div>{item.text}</div>;
-  } else if (isSrt) {
-    // SRT item - show filename prominently
-    content = (
-      <div className="item-content srt-filename">
-        <span className="srt-icon" dangerouslySetInnerHTML={{ __html: ICONS.download }} />
-        {item.text}
-      </div>
-    );
-  } else if (isEmpty) {
-    content = <div><em>(No speech detected)</em></div>;
-  } else {
-    content = <div className="item-content">{item.text}</div>;
-  }
-  
   return (
-    <div className={cardClass} id={`item-${item.timestamp}`}>
-      <div className="meta-row">
-        <div className="meta-left">
-          {leftElements}
-        </div>
-        <div className="meta-right">
-          <div className="pills-row">
-            {pills}
-          </div>
-          <div className="item-actions">
-            {actions}
-          </div>
-        </div>
-      </div>
-      {content}
-    </div>
+    <Card size="2" style={{ backgroundColor: item.error ? 'var(--red-2)' : undefined }}>
+      <Flex direction="column" gap="2">
+        <Flex justify="between" align="center">
+          <Text size="2" color="gray">{timeAgo(item.timestamp)}</Text>
+          {item.backend && (
+            <Badge size="1" color="gray">
+              {item.backend}
+            </Badge>
+          )}
+        </Flex>
+
+        <Text
+          size="2"
+          as="div"
+          style={{ cursor: isLong ? 'pointer' : 'default', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+          onClick={() => isLong && setExpanded(!expanded)}
+          color={item.error ? 'red' : undefined}
+        >
+          {item.isSrt ? `📄 ${displayText}` : displayText}
+        </Text>
+
+        {(item.processingTime !== undefined || item.duration > 0) && (
+          <Flex gap="3">
+            {item.processingTime !== undefined && (
+              <Text size="1" color="gray">
+                {(item.processingTime / 1000).toFixed(1)}s processing
+              </Text>
+            )}
+            {item.duration > 0 && (
+              <Text size="1" color="gray">
+                {(item.duration / 1000).toFixed(1)}s audio
+              </Text>
+            )}
+          </Flex>
+        )}
+
+        <Flex gap="2" justify="end" mt="1">
+          <IconButton size="1" variant="soft" color="gray" onClick={handleCopy} title="Copy">
+            <Copy size={14} />
+          </IconButton>
+          {item.isSrt && item.srtPath && (
+            <IconButton size="1" variant="soft" color="gray" onClick={handleOpenFolder} title="Open folder">
+              <FolderOpen size={14} />
+            </IconButton>
+          )}
+          <IconButton size="1" variant="soft" color="gray" onClick={handleDelete} title="Delete">
+            <Trash2 size={14} />
+          </IconButton>
+        </Flex>
+      </Flex>
+    </Card>
   );
 };

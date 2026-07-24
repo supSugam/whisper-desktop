@@ -45,9 +45,9 @@ async function buildSrtOutputPath(
     outputDir = await dirname(inputFilePath);
     console.log('[SRT] Using same directory as input:', outputDir);
   } else {
-    // Save in default WhisperOutputs directory
+    // Save in default YappieOutputs directory
     const docsDir = await documentDir();
-    outputDir = await join(docsDir, 'WhisperOutputs');
+    outputDir = await join(docsDir, 'YappieOutputs');
     console.log('[SRT] Using default directory:', outputDir);
   }
 
@@ -82,8 +82,7 @@ export const useRecording = () => {
 
       // Get SRT config state
       const srtConfig = useSrtConfigStore.getState();
-      const useSrt =
-        srtConfig.enabled && config.transcriptionEngine === 'local';
+      const useSrt = srtConfig.enabled;
 
       console.log('[transcribeFile] File path:', filePath);
       console.log('[transcribeFile] SRT config:', {
@@ -100,6 +99,14 @@ export const useRecording = () => {
         isGeneratingSrt: useSrt,
       });
 
+      const model = config.localModel || 'Tiny';
+      const exists = await invoke<boolean>('check_model_exists', { modelName: model });
+      if (!exists) {
+        showToast(`${model} model is not downloaded! Please download it in settings.`);
+        useRecordingStore.setState({ isTranscribing: false, isGeneratingSrt: false });
+        return;
+      }
+
       const id = Date.now();
       const tStart = Date.now();
       const addItem = useHistoryStore.getState().addItem;
@@ -108,7 +115,7 @@ export const useRecording = () => {
         let text = '';
         let backendInfo = '';
 
-        // Check if SRT output is enabled (only works with local engine)
+        // Check if SRT output is enabled
         if (useSrt) {
           console.log('[transcribeFile] Using SRT generation mode');
           const useGpu = config.useLocalGPU || false;
@@ -143,7 +150,7 @@ export const useRecording = () => {
           });
 
           showToast('SRT file generated!');
-        } else if (config.transcriptionEngine === 'local') {
+        } else {
           // Normal local transcription
           const useGpu = config.useLocalGPU || false;
           backendInfo = useGpu ? 'Local (GPU)' : 'Local (CPU)';
@@ -153,28 +160,6 @@ export const useRecording = () => {
             model: config.localModel || 'Tiny',
             useGpu,
             translate: config.localTranslate || false,
-          });
-
-          const processingTime = Date.now() - tStart;
-
-          await addItem({
-            timestamp: id,
-            text: text || '',
-            duration: 0,
-            error: false,
-            backend: backendInfo,
-            processingTime,
-          });
-        } else {
-          // Cloud transcription
-          if (!config.token)
-            throw new Error('Please set your ChatGPT token in settings.');
-
-          backendInfo = 'Cloud (ChatGPT)';
-          text = await invoke<string>('transcribe', {
-            path: filePath,
-            token: config.token,
-            userAgent: config.userAgent,
           });
 
           const processingTime = Date.now() - tStart;

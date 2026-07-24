@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useConfigStore } from '../stores/useConfigStore';
+import { Flex, Text, Box } from '@radix-ui/themes';
 
 export const ShortcutRecorder: React.FC = () => {
   const { config, updateSetting } = useConfigStore();
@@ -59,27 +60,31 @@ export const ShortcutRecorder: React.FC = () => {
   };
   
   return (
-    <div className="form-row" id="shortcut-recorder-row">
-      <label className="form-label">Shortcut</label>
-      <div className="shortcut-recorder">
-        <input
-          type="text"
-          id="shortcut-value-input"
-          className={`shortcut-input ${recording ? 'recording' : ''}`}
-          readOnly
-          placeholder={recording ? 'Press keys...' : 'Click to record...'}
-          value={value}
-          onClick={startRecording}
-        />
-        <button
-          id="shortcut-record-btn"
-          className="icon-btn-sm"
-          title="Record New Shortcut"
-          onClick={startRecording}
-        >
-          {recording ? '⬛' : '🔴'}
-        </button>
-      </div>
-    </div>
+    <Flex 
+      className="shortcut-recorder" 
+      align="center" 
+      justify="between" 
+      py="2"
+      onClick={startRecording}
+      style={{ cursor: 'pointer' }}
+    >
+      <Text size="2" weight="medium" style={{ color: '#d4d4d8' }}>Keys</Text>
+      <Box 
+        px="3" 
+        py="1" 
+        style={{ 
+          backgroundColor: recording ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)', 
+          borderRadius: '8px', 
+          border: recording ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.08)',
+          transition: 'all 0.15s ease',
+          minWidth: '100px',
+          textAlign: 'center',
+        }}
+      >
+        <Text size="2" weight="medium" style={{ color: recording ? '#e4e4e7' : '#a1a1aa', fontFamily: 'monospace', fontSize: '12px' }}>
+          {recording ? 'Press keys...' : value}
+        </Text>
+      </Box>
+    </Flex>
   );
 };

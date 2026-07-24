@@ -116,7 +116,7 @@ pub async fn transcribe_local<R: Runtime>(app: AppHandle<R>, path: String, model
         temp_wav = None;
     }
 
-    emit_progress(&app, 10, 0, 0, "loading_model");
+    // We will emit loading_model inside transcribe_wav if needed
     let result = transcribe_wav(&app, &wav_path, &model_path, _use_gpu, translate).await;
 
     // Clean up temp file
@@ -135,15 +135,23 @@ async fn transcribe_wav<R: Runtime>(
     _use_gpu: bool,
     translate: bool,
 ) -> Result<String, String> {
-    let mut params = WhisperContextParameters::default();
-    
-    #[cfg(any(feature = "cuda", feature = "vulkan", feature = "rocm"))]
-    {
-        params.use_gpu(_use_gpu);
-    }
+    let model_state = app.state::<crate::state::WhisperModelState>();
+    let model_key = format!("{}-gpu:{}", model_path.to_string_lossy(), _use_gpu);
 
-    let ctx = WhisperContext::new_with_params(&model_path.to_string_lossy(), params)
-        .map_err(|e| format!("Failed to load model: {}", e))?;
+    let mut ctx_guard = model_state.context.lock().unwrap();
+
+    if ctx_guard.as_ref().map(|(k, _)| k) != Some(&model_key) {
+        emit_progress(app, 10, 0, 0, "loading_model");
+        let mut params = WhisperContextParameters::default();
+        #[cfg(any(feature = "cuda", feature = "vulkan", feature = "rocm"))]
+        {
+            params.use_gpu(_use_gpu);
+        }
+        let ctx = WhisperContext::new_with_params(&model_path.to_string_lossy(), params)
+            .map_err(|e| format!("Failed to load model: {}", e))?;
+        *ctx_guard = Some((model_key, ctx));
+    }
+    let ctx = &ctx_guard.as_ref().unwrap().1;
 
     let mut state = ctx.create_state().map_err(|e| format!("Failed to create state: {}", e))?;
 
@@ -154,8 +162,10 @@ async fn transcribe_wav<R: Runtime>(
         .map_err(|e| format!("Failed to open wav file: {}", e))?;
     let spec = reader.spec();
 
-    let raw_samples: Vec<i16> = reader.samples::<i16>().map(|s| s.unwrap_or(0)).collect();
-    let mut samples: Vec<f32> = raw_samples.iter().map(|&s| s as f32 / 32768.0).collect();
+    // Optimize: Read directly to f32 to avoid holding raw i16 vector in memory
+    let mut samples: Vec<f32> = reader.samples::<i16>()
+        .map(|s| s.unwrap_or(0) as f32 / 32768.0)
+        .collect();
     
     // Stereo to Mono if still needed
     if spec.channels == 2 {
@@ -188,6 +198,12 @@ async fn transcribe_wav<R: Runtime>(
 
     // Run inference
     let mut wparams = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+
+    // Limit threads to prevent system freeze
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let n_threads = if threads > 2 { threads - 2 } else { 1 };
+    wparams.set_n_threads(n_threads as i32);
+
     wparams.set_language(Some("auto"));
     wparams.set_translate(translate);
     wparams.set_print_special(false);

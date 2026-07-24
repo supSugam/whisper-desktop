@@ -9,6 +9,8 @@ interface ToastState {
   hide: () => void;
 }
 
+let timeoutId: NodeJS.Timeout;
+
 export const useToastStore = create<ToastState>((set) => ({
   message: '',
   isVisible: false,
@@ -16,11 +18,15 @@ export const useToastStore = create<ToastState>((set) => ({
   show: (message) => {
     set({ message, isVisible: true });
     
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+    
+    timeoutId = setTimeout(() => {
       set({ isVisible: false });
     }, 3000);
   },
   
-  hide: () => set({ isVisible: false }),
+  hide: () => {
+    if (timeoutId) clearTimeout(timeoutId);
+    set({ isVisible: false });
+  },
 }));

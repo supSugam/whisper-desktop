@@ -8,6 +8,8 @@ pub struct AudioState {
     pub stream: Arc<Mutex<Option<SendStream>>>,
     pub is_recording: Arc<Mutex<bool>>,
     pub max_amplitude: Arc<Mutex<f32>>,
+    /// Rolling RMS level for the most recent audio chunk (0.0–1.0)
+    pub current_level: Arc<Mutex<f32>>,
 }
 
 impl AudioState {
@@ -16,6 +18,19 @@ impl AudioState {
             stream: Arc::new(Mutex::new(None)),
             is_recording: Arc::new(Mutex::new(false)),
             max_amplitude: Arc::new(Mutex::new(0.0)),
+            current_level: Arc::new(Mutex::new(0.0)),
+        }
+    }
+}
+
+pub struct WhisperModelState {
+    pub context: Arc<Mutex<Option<(String, whisper_rs::WhisperContext)>>>,
+}
+
+impl WhisperModelState {
+    pub fn new() -> Self {
+        Self {
+            context: Arc::new(Mutex::new(None)),
         }
     }
 }

@@ -16,17 +16,12 @@ export function getStore(): Store | null {
 export async function getConfig(): Promise<AppConfig> {
   if (!store) return cachedConfig;
 
-  const token = await store.get<string>('token');
-  const userAgent = await store.get<string>('userAgent');
   const autoCopy = await store.get<boolean>('autoCopy');
   const autoPaste = await store.get<boolean>('autoPaste');
   const soundEnabled = await store.get<boolean>('soundEnabled');
   const shortcutEnabled = await store.get<boolean>('shortcutEnabled');
   const recordMode = await store.get<'toggle' | 'hold'>('recordMode');
   const notificationEnabled = await store.get<boolean>('notificationEnabled');
-  const transcriptionEngine = await store.get<'cloud' | 'local'>(
-    'transcriptionEngine'
-  );
   const localModel = await store.get<string>('localModel');
   const useLocalGPU = await store.get<boolean>('useLocalGPU');
   const globalShortcut = await store.get<string>('globalShortcut');
@@ -41,8 +36,6 @@ export async function getConfig(): Promise<AppConfig> {
   }
 
   cachedConfig = {
-    token: token ?? DEFAULT_CONFIG.token,
-    userAgent: userAgent ?? DEFAULT_CONFIG.userAgent,
     autoCopy: autoCopy ?? DEFAULT_CONFIG.autoCopy,
     autoPaste: autoPaste ?? DEFAULT_CONFIG.autoPaste,
     autostart, // Dynamic
@@ -51,8 +44,6 @@ export async function getConfig(): Promise<AppConfig> {
     recordMode: recordMode ?? DEFAULT_CONFIG.recordMode,
     notificationEnabled:
       notificationEnabled ?? DEFAULT_CONFIG.notificationEnabled,
-    transcriptionEngine:
-      transcriptionEngine ?? DEFAULT_CONFIG.transcriptionEngine,
     localModel: localModel ?? DEFAULT_CONFIG.localModel,
     useLocalGPU: useLocalGPU ?? DEFAULT_CONFIG.useLocalGPU,
     globalShortcut: globalShortcut ?? DEFAULT_CONFIG.globalShortcut,

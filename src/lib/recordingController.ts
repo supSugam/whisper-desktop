@@ -12,7 +12,7 @@ import { useSrtConfigStore } from '../stores/useSrtConfigStore';
 // State
 let _isRecording = false;
 let _isTranscribing = false;
-let _isCancelled = false;
+let _currentTranscriptionId = 0;
 let _startTime = 0;
 let _recordTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -35,7 +35,6 @@ export const recordingController = {
   // Getters
   get isRecording() { return _isRecording; },
   get isTranscribing() { return _isTranscribing; },
-  get isCancelled() { return _isCancelled; },
   get startTime() { return _startTime; },
 
   async startRecord() {
@@ -45,12 +44,21 @@ export const recordingController = {
     const showToast = getShowToast();
     
     if (_isTranscribing) {
-      showToast('Wait for previous task to finish');
-      return;
+      try {
+        await invoke('cancel_transcription');
+      } catch (e) {
+        console.error('Failed to cancel previous transcription:', e);
+      }
+      _currentTranscriptionId = 0; // invalidate pending transcriptions
+      _isTranscribing = false;
+      useRecordingStore.setState({ isGeneratingSrt: false });
+      updateReactState();
     }
     
-    if (!config.token && config.transcriptionEngine !== 'local') {
-      alert('Please set your ChatGPT token in settings first.');
+    const model = config.localModel || 'Tiny';
+    const exists = await invoke<boolean>('check_model_exists', { modelName: model });
+    if (!exists) {
+      showToast(`${model} model is not downloaded! Please download it in settings.`);
       return;
     }
     
@@ -86,14 +94,15 @@ export const recordingController = {
     console.log('[RecordingController] SRT enabled:', srtConfig.enabled);
     
     _isRecording = false;
-    _isCancelled = false;
+    const currentId = _startTime; // capture ID for this transcription
+    _currentTranscriptionId = currentId;
     if (config.soundEnabled) audioController.playEnd();
     if (_recordTimer) clearInterval(_recordTimer);
     
     _isTranscribing = true;
     
     // Also set isGeneratingSrt if SRT mode
-    if (srtConfig.enabled && config.transcriptionEngine === 'local') {
+    if (srtConfig.enabled) {
       useRecordingStore.setState({ isGeneratingSrt: true });
     }
     
@@ -119,8 +128,8 @@ export const recordingController = {
         const tStart = Date.now();
         let backendInfo = '';
         
-        // Check if SRT output is enabled (only works with local engine)
-        if (srtConfig.enabled && config.transcriptionEngine === 'local') {
+        // Check if SRT output is enabled
+        if (srtConfig.enabled) {
           console.log('[RecordingController] Using SRT generation mode');
           console.log('[RecordingController] SRT config:', {
             outputPath: srtConfig.outputPath,
@@ -134,7 +143,7 @@ export const recordingController = {
           
           // Build output path - for recordings, we always use default dir (no source file path)
           const docsDir = await documentDir();
-          const outputDir = await join(docsDir, 'WhisperOutputs');
+          const outputDir = await join(docsDir, 'YappieOutputs');
           
           // Use custom filename if set, otherwise use timestamp
           let filename: string;
@@ -173,7 +182,7 @@ export const recordingController = {
           
           showToast('SRT file generated!');
           
-        } else if (config.transcriptionEngine === 'local') {
+        } else {
           // Normal local transcription
           const useGpu = config.useLocalGPU || false;
           backendInfo = useGpu ? 'Local (GPU)' : 'Local (CPU)';
@@ -187,8 +196,7 @@ export const recordingController = {
           
           const processingTime = Date.now() - tStart;
           
-          if (_isCancelled) {
-            _isCancelled = false;
+          if (_currentTranscriptionId !== currentId) {
             return;
           }
           
@@ -205,56 +213,41 @@ export const recordingController = {
             await writeText(text);
             
             if (config.autoPaste) {
-              setTimeout(() => invoke('paste_text'), 100);
-              showToast('Pasted');
-            }
-            
-            if (config.notificationEnabled) {
+              try {
+                // Wait for paste attempt
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await invoke('paste_text');
+                showToast('Pasted');
+                
+                if (config.notificationEnabled) {
+                  await invoke('send_notification', {
+                    title: 'Yappie',
+                    body: 'Transcription pasted!',
+                  });
+                }
+              } catch (e: any) {
+                // Paste failed (Wayland security restriction)
+                showToast('Copied! Press Ctrl+V to paste');
+                console.warn('Auto-paste failed:', e);
+                
+                if (config.notificationEnabled) {
+                  try {
+                    await invoke('send_notification', {
+                      title: 'Yappie',
+                      body: 'Copied to clipboard. Press Ctrl+V to paste.',
+                    });
+                  } catch (_) {}
+                }
+              }
+            } else if (config.notificationEnabled) {
               try {
                 await invoke('send_notification', {
-                  title: 'Whisper+',
-                  body: config.autoPaste
-                    ? 'Transcription pasted!'
-                    : 'Transcription copied to clipboard. Press Ctrl+V to paste.',
+                  title: 'Yappie',
+                  body: 'Transcription copied to clipboard. Press Ctrl+V to paste.',
                 });
               } catch (e) {
                 console.error('Notification error:', e);
               }
-            }
-          }
-        } else {
-          // Cloud transcription
-          if (!config.token) throw new Error('Please set your ChatGPT token in settings.');
-          
-          backendInfo = 'Cloud (ChatGPT)';
-          text = await invoke<string>('transcribe', {
-            path,
-            token: config.token,
-            userAgent: config.userAgent,
-          });
-          
-          const processingTime = Date.now() - tStart;
-          
-          if (_isCancelled) {
-            _isCancelled = false;
-            return;
-          }
-          
-          addItem({
-            timestamp: id,
-            text: text || '',
-            duration,
-            error: false,
-            backend: backendInfo,
-            processingTime,
-          });
-          
-          if (text && config.autoCopy) {
-            await writeText(text);
-            
-            if (config.autoPaste) {
-              setTimeout(() => invoke('paste_text'), 100);
-              showToast('Pasted');
             }
           }
         }
@@ -275,9 +268,11 @@ export const recordingController = {
         showToast('Error processing audio');
       }
     } finally {
-      _isTranscribing = false;
-      useRecordingStore.setState({ isGeneratingSrt: false });
-      updateReactState();
+      if (_currentTranscriptionId === currentId) {
+        _isTranscribing = false;
+        useRecordingStore.setState({ isGeneratingSrt: false });
+        updateReactState();
+      }
     }
   },
 
@@ -300,11 +295,12 @@ export const recordingController = {
       } catch (e) {
         console.error('Failed to cancel:', e);
       }
-      _isCancelled = true;
+      _currentTranscriptionId = 0;
       _isTranscribing = false;
       useRecordingStore.setState({ isGeneratingSrt: false });
       showToast('Cancelled');
       updateReactState();
+      invoke('clear_tray_title').catch(console.error);
       return;
     }
     
