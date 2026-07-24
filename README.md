@@ -9,9 +9,7 @@ A lightweight cross-platform application that brings OpenAI Whisper's voice-to-t
 ## Table of Contents
 
 - [Features](#features)
-- [Transcription Methods](#transcription-methods)
-    - [Option 1: Local Whisper (Recommended)](#option-1-local-whisper-recommended)
-    - [Option 2: Cloud (ChatGPT)](#option-2-cloud-chatgpt)
+- [Transcription Engine](#transcription-engine)
 - [Installation](#installation)
 - [Configuration](#configuration)
     - [Custom Shortcuts](#custom-shortcuts)
@@ -79,7 +77,7 @@ curl -fsSL https://raw.githubusercontent.com/supSugam/whisper-desktop/main/insta
 ### Manual Installation
 Download the latest installer from [Releases](https://github.com/supSugam/whisper-desktop/releases):
 -   **Windows**: `.exe`
--   **Linux**: `.AppImage`, `.deb`
+-   **Linux**: `.deb`, `.rpm`
 -   **macOS**: `.dmg`
 
 ---
@@ -94,7 +92,7 @@ Download the latest installer from [Releases](https://github.com/supSugam/whispe
 Global shortcuts on Wayland are restricted by security protocols.
 1.  Go to **System Settings > Keyboard > Shortcuts**.
 2.  Create a **Custom Shortcut**.
-3.  **Command**: `yappie --toggle` (or path to your AppImage/Flatpak).
+3.  **Command**: `yappie --toggle`
 4.  **Shortcut**: Set your desired keys.
 
 > [!NOTE]

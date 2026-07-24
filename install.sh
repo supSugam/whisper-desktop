@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-VERSION="1.0.3"
-TAG="v1.0.3"
+VERSION="1.0.4"
+TAG="v1.0.4"
 BASE_URL="https://github.com/supSugam/whisper-desktop/releases/download/$TAG"
 
 # Colors
@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${GREEN}Whisper+ Installer ($TAG)${NC}"
+echo -e "${GREEN}Yappie Installer ($TAG)${NC}"
 
 # Detect OS
 OS="$(uname -s)"
@@ -41,7 +41,7 @@ if [ "$OS" = "Linux" ]; then
     if [ "$ARCH" = "x86_64" ]; then
         if command -v dpkg >/dev/null && command -v apt-get >/dev/null; then
             # Debian/Ubuntu
-            FILE="whisper-plus_${VERSION}_amd64.deb"
+            FILE="yappie_${VERSION}_amd64.deb"
             URL="$BASE_URL/$FILE"
             DEST="/tmp/$FILE"
             
@@ -53,7 +53,7 @@ if [ "$OS" = "Linux" ]; then
                 sudo apt-get install -f -y
                 rm "$DEST"
                 show_local_model_info "Linux"
-                echo -e "${GREEN}Installation complete! Run 'whisper-plus' to start.${NC}"
+                echo -e "${GREEN}Installation complete! Run 'yappie' to start.${NC}"
             else
                 echo -e "${RED}Download failed.${NC}"
                 exit 1
@@ -61,7 +61,7 @@ if [ "$OS" = "Linux" ]; then
             
         elif command -v rpm >/dev/null; then
             # RHEL/Fedora
-            FILE="whisper-plus-${VERSION}-1.x86_64.rpm"
+            FILE="yappie-${VERSION}-1.x86_64.rpm"
             URL="$BASE_URL/$FILE"
             DEST="/tmp/$FILE"
             
@@ -72,28 +72,16 @@ if [ "$OS" = "Linux" ]; then
                 sudo rpm -i "$DEST"
                 rm "$DEST"
                 show_local_model_info "Linux"
-                echo -e "${GREEN}Installation complete! Run 'whisper-plus' to start.${NC}"
+                echo -e "${GREEN}Installation complete! Run 'yappie' to start.${NC}"
             else
                 echo -e "${RED}Download failed.${NC}"
                 exit 1
             fi
             
         else
-            # Fallback to AppImage
-            FILE="whisper-plus_${VERSION}_amd64.AppImage"
-            URL="$BASE_URL/$FILE"
-            DEST="./whisper-plus.AppImage"
-            
-            echo "No supported package manager found. Falling back to AppImage."
-            echo -e "Downloading ${GREEN}$FILE${NC}..."
-            if curl -L -o "$DEST" "$URL"; then
-                chmod +x "$DEST"
-                show_local_model_info "Linux"
-                echo -e "${GREEN}Download complete! Run with ./whisper-plus.AppImage${NC}"
-            else
-                echo -e "${RED}Download failed.${NC}"
-                exit 1
-            fi
+            echo -e "${RED}No supported package manager (dpkg/rpm) found for Linux.${NC}"
+            echo -e "Please compile from source or check the GitHub releases."
+            exit 1
         fi
     else
         echo -e "${RED}Unsupported Linux architecture: $ARCH${NC}"
@@ -102,7 +90,7 @@ if [ "$OS" = "Linux" ]; then
 
 elif [ "$OS" = "Darwin" ]; then
     if [ "$ARCH" = "arm64" ]; then
-        FILE="whisper-plus_${VERSION}_aarch64.dmg"
+        FILE="yappie_${VERSION}_aarch64.dmg"
         URL="$BASE_URL/$FILE"
         DEST="/tmp/$FILE"
         
@@ -112,7 +100,7 @@ elif [ "$OS" = "Darwin" ]; then
             echo "Mounting DMG..."
             hdiutil attach "$DEST"
             show_local_model_info "Darwin"
-            echo -e "${GREEN}Please drag Whisper+ to your Applications folder in the window that opens.${NC}"
+            echo -e "${GREEN}Please drag Yappie to your Applications folder in the window that opens.${NC}"
         else
             echo -e "${RED}Download failed.${NC}"
             exit 1
