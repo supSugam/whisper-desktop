@@ -1,6 +1,4 @@
 export interface AppConfig {
-  token: string;
-  userAgent: string;
   autoCopy: boolean;
   autoPaste: boolean;
   autostart: boolean;
@@ -8,7 +6,6 @@ export interface AppConfig {
   shortcutEnabled: boolean;
   recordMode: 'toggle' | 'hold';
   notificationEnabled: boolean;
-  transcriptionEngine: 'cloud' | 'local';
   localModel: string;
   useLocalGPU?: boolean;
   globalShortcut?: string;
@@ -17,19 +14,15 @@ export interface AppConfig {
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
-  token: '',
-  userAgent:
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  transcriptionEngine: 'cloud',
-  recordMode: 'hold',
+  recordMode: 'toggle',
   alwaysOnTop: false,
   autoCopy: true,
   autoPaste: false,
   soundEnabled: true,
-  notificationEnabled: true,
+  notificationEnabled: false,
   autostart: true,
   shortcutEnabled: true,
-  localModel: 'Tiny',
+  localModel: 'Base',
   useLocalGPU: false,
   globalShortcut: 'Ctrl+Alt+Space',
   localTranslate: false,
@@ -40,6 +33,8 @@ export interface HistoryItem {
   text: string;
   duration: number; // Audio duration in ms
   error?: boolean;
-  backend?: string; // 'Cloud', 'CPU', 'GPU'
+  backend?: string; // 'Cloud', 'CPU', 'GPU', 'SRT'
   processingTime?: number; // Transcription time in ms
+  isSrt?: boolean; // True if this is an SRT file entry
+  srtPath?: string; // Path to the SRT file
 }

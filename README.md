@@ -1,4 +1,4 @@
-# Whisper+
+# Yappie
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg) ![Tauri](https://img.shields.io/badge/Tauri-2.0-orange) ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6) ![Rust](https://img.shields.io/badge/Rust-1.70+-000000)
 
@@ -22,7 +22,7 @@ A lightweight cross-platform application that brings OpenAI Whisper's voice-to-t
 
 ## Features
 
--   **Dual Engine Support**: Choose between **Local Whisper** (Privacy/Offline) or **Cloud ChatGPT** (High Accuracy).
+-   **Privacy & Offline**: Your audio never leaves your computer. Transcription runs entirely on your device.
 -   **GPU Acceleration**: Native support for **NVIDIA (CUDA)** and **AMD/Cross-platform (Vulkan)** for blazing fast local inference.
 -   **Smart Hardware Detection**: Automatically detects your CPU/GPU capabilities and RAM to suggest optimal settings.
 -   **Global Shortcuts**: Toggle recording from anywhere. Fully customizable on X11/Windows/macOS.
@@ -33,18 +33,14 @@ A lightweight cross-platform application that brings OpenAI Whisper's voice-to-t
 
 ---
 
-## Transcription Methods
+## Transcription Engine
 
-Whisper+ offers two distinct ways to transcribe your audio. You can switch between them instantly in Settings.
-
-### Option 1: Local Whisper (Recommended)
-
-This method runs the AI model **entirely on your device**.
+Yappie runs the AI model **entirely on your device**.
 
 -   **Privacy**: Your audio never leaves your computer.
 -   **Offline**: Works without an internet connection.
 -   **Fast**: Fast on GPUs (often near real-time).
--   **Cost**: Free (no OpenAI account required).
+-   **Cost**: Free.
 
 **Requirements:**
 -   **No Python/PyTorch needed**: The engine is self-contained.
@@ -69,28 +65,6 @@ When using Local Whisper, you can enable **"Translate to English"** in settings.
 
 > [!TIP]
 > **Privacy Note**: This is the most secure method. It is completely offline, everything happens locally on your device.
-
-### Option 2: Cloud (ChatGPT)
-
-This method acts as a bridge to your personal ChatGPT account.
-
--   **Accuracy**: Uses OpenAI's powerful cloud models.
--   **Context**: Can be smarter with context (sometimes).
--   **Requirements**: Requires a text-capable internet connection and a valid session token.
-
-> [!IMPORTANT]
-> **Security Warning**: This requires your private ChatGPT Session Token. This token gives full access to your account.
-> -   **Whisper+ stores this token LOCALLY**.
-> -   It is **only** used to communicate directly with `chatgpt.com`.
-> -   **NEVER share this token with anyone else.**
-
-#### Retrieving your Token
-
-1.  Log in to [chatgpt.com](https://chatgpt.com).
-2.  Open Developer Tools (`F12`).
-3.  Go to **Application** tab > **Cookies** > `https://chatgpt.com`.
-4.  Copy the value of `__Secure-next-auth.session-token`.
-5.  Paste it into Whisper+ Settings.
 
 ---
 
@@ -120,7 +94,7 @@ Download the latest installer from [Releases](https://github.com/supSugam/whispe
 Global shortcuts on Wayland are restricted by security protocols.
 1.  Go to **System Settings > Keyboard > Shortcuts**.
 2.  Create a **Custom Shortcut**.
-3.  **Command**: `whisper-plus --toggle` (or path to your AppImage).
+3.  **Command**: `yappie --toggle` (or path to your AppImage/Flatpak).
 4.  **Shortcut**: Set your desired keys.
 
 > [!NOTE]
@@ -163,8 +137,8 @@ To build the application from source:
 
 1.  Clone & Install:
     ```bash
-    git clone https://github.com/supSugam/whisper-plus.git
-    cd whisper-plus
+    git clone https://github.com/supSugam/whisper-desktop.git
+    cd whisper-desktop
     npm install
     ```
 

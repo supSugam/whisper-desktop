@@ -1,4 +1,125 @@
-@import './variables.css';
-@import './base.css';
-@import './layout.css';
-@import './components.css';
+html, body, #root, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  overflow: hidden;
+  font-family: 'Google Sans Flex', 'Google Sans', system-ui, -apple-system, sans-serif;
+  background-color: #000000;
+  color: #f4f4f6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Make UI feel strictly native */
+* {
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Aggressively disable text selection everywhere except inputs */
+*:not(input):not(textarea):not([contenteditable="true"]) {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.radix-themes {
+  --color-page-background: #000000 !important;
+  --color-panel-solid: #050507 !important;
+  --color-panel-translucent: rgba(10, 10, 15, 0.7) !important;
+  --gray-1: #000000 !important;
+  --gray-2: #09090c !important;
+  --gray-3: #121217 !important;
+  --gray-4: #1c1c24 !important;
+  --gray-5: #262632 !important;
+  --gray-a1: rgba(0,0,0,1) !important;
+  --gray-a2: rgba(255,255,255,0.03) !important;
+  --gray-a3: rgba(255,255,255,0.07) !important;
+  --gray-a4: rgba(255,255,255,0.12) !important;
+  --default-font-family: 'Google Sans Flex', 'Google Sans', system-ui, sans-serif !important;
+}
+
+
+
+/* Hide native scrollbars */
+::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Radix UI ScrollArea Overrides */
+.rt-ScrollAreaScrollbar {
+  background: transparent !important;
+  width: 4px !important;
+  margin: 12px 2px !important;
+  border-radius: 9999px !important;
+}
+
+.rt-ScrollAreaScrollbar[data-orientation="horizontal"] {
+  height: 4px !important;
+  margin: 2px 12px !important;
+}
+
+.rt-ScrollAreaThumb {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 9999px !important;
+  transition: background 0.15s ease !important;
+}
+
+.rt-ScrollAreaThumb:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* View Transition Micro-Animations */
+.view-enter {
+  animation: fadeInScale 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Tactile Interactive Polish */
+.rt-Button, .rt-IconButton {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.rt-Button:active, .rt-IconButton:active {
+  transform: scale(0.96) !important;
+}
+
+.rt-Card {
+  background: rgba(18, 18, 23, 0.6) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 12px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.rt-Card:hover {
+  border-color: rgba(255, 255, 255, 0.13) !important;
+}
+
+.rt-SwitchRoot {
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+

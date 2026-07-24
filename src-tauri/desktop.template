@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=Whisper+
-{{#if comment}}
-Comment={{comment}}
-{{/if}}
-Exec=env GDK_BACKEND=x11 whisper-plus %U
-Icon={{icon}}
+Name=Yappie
+Comment=Voice-to-text transcription powered by Whisper
+Exec=yappie %U
+Icon=io.github.supsugam.Yappie
 Terminal=false
 Type=Application
-Categories={{categories}}
-StartupWMClass=whisper-plus
+Categories=Audio;Utility;Accessibility;
+Keywords=whisper;transcription;speech;voice;text;stt;
+StartupWMClass=yappie
+MimeType=audio/wav;audio/mpeg;audio/flac;audio/ogg;audio/mp4;

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2025 Yappie Contributors -->
+<component type="desktop-application">
+  <id>io.github.supsugam.Yappie</id>
+
+  <name>Yappie</name>
+  <summary>Voice-to-text transcription powered by Whisper</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Yappie is a lightweight desktop voice-to-text application powered by OpenAI's 
+      Whisper speech recognition model. It runs entirely locally on your machine — 
+      no cloud, no API keys, no data leaves your computer.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Local transcription using whisper.cpp with GPU acceleration (Vulkan, CUDA, ROCm)</li>
+      <li>Global keyboard shortcut to start/stop recording from anywhere</li>
+      <li>Auto-copy and auto-paste transcribed text</li>
+      <li>SRT subtitle file generation with precise timestamps</li>
+      <li>Multiple Whisper model sizes: Tiny, Base, Small, Medium, Large</li>
+      <li>Translation mode for non-English audio</li>
+      <li>Transcription history with search</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.supsugam.Yappie.desktop</launchable>
+
+  <url type="homepage">https://github.com/supSugam/whisper-desktop</url>
+  <url type="bugtracker">https://github.com/supSugam/whisper-desktop/issues</url>
+  <url type="vcs-browser">https://github.com/supSugam/whisper-desktop</url>
+
+  <developer id="io.github.supsugam">
+    <name>supSugam</name>
+  </developer>
+
+  <branding>
+    <color type="primary" scheme_preference="dark">#000000</color>
+    <color type="primary" scheme_preference="light">#1c1c24</color>
+  </branding>
+
+  <content_rating type="oars-1.1" />
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <categories>
+    <category>Audio</category>
+    <category>Utility</category>
+    <category>Accessibility</category>
+  </categories>
+
+  <keywords>
+    <keyword>whisper</keyword>
+    <keyword>transcription</keyword>
+    <keyword>speech-to-text</keyword>
+    <keyword>voice</keyword>
+    <keyword>audio</keyword>
+    <keyword>subtitles</keyword>
+    <keyword>srt</keyword>
+  </keywords>
+
+  <releases>
+    <release version="1.0.3" date="2025-07-24">
+      <description>
+        <p>Initial Flathub release.</p>
+        <ul>
+          <li>Local Whisper transcription with GPU acceleration</li>
+          <li>SRT subtitle generation</li>
+          <li>Global shortcut support</li>
+          <li>Transcription history</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>
