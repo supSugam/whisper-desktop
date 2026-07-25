@@ -25,7 +25,8 @@
         "backgroundColor": "#000000",
         "visible": false,
         "decorations": true,
-        "transparent": false
+        "transparent": false,
+        "icon": "icons/icon.png"
       }
     ],
     "security": {

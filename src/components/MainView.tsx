@@ -10,6 +10,7 @@ import { toggleRecord } from '../lib/recordingController';
 import { AudioVisualizer } from './AudioVisualizer';
 import { Flex, IconButton, Text, Box, Button } from '@radix-ui/themes';
 import { Mic, Square, History, Settings, Loader2 } from 'lucide-react';
+import yappieLogo from '../assets/yappie.svg';
 
 export const MainView: React.FC = () => {
   const { view, setView } = useContext(ViewContext);
@@ -105,7 +106,7 @@ export const MainView: React.FC = () => {
     <Flex direction="column" align="center" justify="center" height="100%" position="relative" px="4">
       {/* App Header */}
       <Flex position="absolute" align="center" gap="1" style={{ top: '24px', opacity: 0.8 }}>
-        <img src="/src/assets/yappie.svg" alt="Yappie Logo" style={{ width: '28px', height: '28px' }} />
+        <img src={yappieLogo} alt="Yappie Logo" style={{ width: '28px', height: '28px' }} />
         <Text size="5" weight="bold" style={{ letterSpacing: '-0.02em' }}>Yappie</Text>
       </Flex>
 
