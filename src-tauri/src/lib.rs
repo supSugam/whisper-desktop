@@ -48,6 +48,7 @@ pub fn run() {
                         "quit" => { app.exit(0); }
                         "show" => {
                             if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.unminimize();
                                 window.show().unwrap();
                                 window.set_focus().unwrap();
                             }
@@ -59,6 +60,7 @@ pub fn run() {
                     if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
                         let app = tray.app_handle();
                         if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
@@ -84,6 +86,7 @@ pub fn run() {
                 return;
             }
             if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }

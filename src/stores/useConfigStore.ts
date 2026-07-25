@@ -19,6 +19,19 @@ export const useConfigStore = create<ConfigState>((set) => ({
   
   initialize: async () => {
     await initStore();
+    
+    // Enable autostart by default on first run
+    const hasInitialized = localStorage.getItem('yappie_initialized');
+    if (!hasInitialized) {
+      try {
+        const { enable } = await import('@tauri-apps/plugin-autostart');
+        await enable();
+        localStorage.setItem('yappie_initialized', 'true');
+      } catch (e) {
+        console.warn('Failed to enable autostart on first run', e);
+      }
+    }
+
     const config = await getConfig();
     set({ config, isInitialized: true });
   },

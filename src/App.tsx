@@ -81,7 +81,10 @@ const App: React.FC = () => {
       try {
         const isAutostarted = await invoke<boolean>('was_autostarted');
         if (!isAutostarted) {
-          await getCurrentWindow().show();
+          const win = getCurrentWindow();
+          await win.unminimize();
+          await win.show();
+          await win.setFocus();
         }
       } catch (e) {
         console.warn('Window show failed:', e);
