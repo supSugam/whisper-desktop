@@ -32,7 +32,7 @@ const SectionHeader: React.FC<{ label: string }> = ({ label }) => (
 
 export const SettingsView: React.FC = () => {
   const { setView } = useView();
-  const { config, updateSetting } = useConfigStore();
+  const { config, updateSetting, refreshConfig } = useConfigStore();
   const showToast = useToastStore(state => state.show);
 
   const [sessionType, setSessionType] = useState<string>('x11');
@@ -49,6 +49,7 @@ export const SettingsView: React.FC = () => {
     try {
       if (checked) await enable();
       else await disable();
+      await refreshConfig();
     } catch (err) {
       console.error('Autostart toggle error', err);
     }
