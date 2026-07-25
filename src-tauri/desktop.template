@@ -2,7 +2,7 @@
 Name=Yappie
 Comment=Voice-to-text transcription powered by Whisper
 Exec=yappie %U
-Icon=io.github.supsugam.Yappie
+Icon=yappie
 Terminal=false
 Type=Application
 Categories=Audio;Utility;Accessibility;
