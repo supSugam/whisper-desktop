@@ -27,13 +27,8 @@ export async function getConfig(): Promise<AppConfig> {
   const globalShortcut = await store.get<string>('globalShortcut');
   const localTranslate = await store.get<boolean>('localTranslate');
 
-  // Check Autostart status dynamically
-  let autostart = false;
-  try {
-    autostart = await isEnabled();
-  } catch (e) {
-    console.warn('Autostart check failed', e);
-  }
+  // Rely on the cached state for autostart to prevent race conditions during UI toggles
+  let autostart = cachedConfig.autostart;
 
   cachedConfig = {
     autoCopy: autoCopy ?? DEFAULT_CONFIG.autoCopy,
@@ -54,10 +49,13 @@ export async function getConfig(): Promise<AppConfig> {
 }
 
 export async function updateConfig(key: keyof AppConfig, value: any) {
+  if (key === 'autostart') {
+    cachedConfig = { ...cachedConfig, autostart: value };
+    return;
+  }
   if (!store) return;
-  if (key === 'autostart') return;
   await store.set(key, value);
   await store.save();
   // Immediately update cache for instant reactivity
-  (cachedConfig as any)[key] = value;
+  cachedConfig = { ...cachedConfig, [key]: value };
 }

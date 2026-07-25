@@ -46,12 +46,17 @@ export const SettingsView: React.FC = () => {
   const isWayland = sessionType === 'wayland';
 
   const handleAutostartToggle = async (checked: boolean) => {
+    // Eagerly update UI state
+    updateSetting('autostart', checked);
     try {
       if (checked) await enable();
       else await disable();
+      // Ensure sync
       await refreshConfig();
     } catch (err) {
       console.error('Autostart toggle error', err);
+      // Revert UI on failure
+      updateSetting('autostart', !checked);
     }
   };
 
