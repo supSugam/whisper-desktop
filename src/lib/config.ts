@@ -1,5 +1,4 @@
 import { Store } from "@tauri-apps/plugin-store";
-import { isEnabled } from "@tauri-apps/plugin-autostart";
 import { AppConfig, DEFAULT_CONFIG } from "../types";
 
 let store: Store | null = null;
